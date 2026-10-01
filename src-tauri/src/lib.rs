@@ -1138,13 +1138,16 @@ fn get_accounts(state: State<'_, AppState>) -> Result<Vec<Account>, UnkaiError> 
     cmds::accounts::get_accounts(&h.ctx.cache)
 }
 
-/// Seed the demo account (test mode). See `unkai_commands::demo`.
+/// Seed the demo account (test mode) in the UI's language. See
+/// `unkai_commands::demo`.
 #[tauri::command]
 async fn create_demo_account(
     state: State<'_, AppState>,
+    locale: Option<String>,
 ) -> Result<cmds::demo::DemoSummary, UnkaiError> {
     let h = app_ctx(&state)?;
-    cmds::demo::create_demo_account(&h.ctx.cache, h.ctx.ui.as_ref()).await
+    let lang = cmds::demo::DemoLanguage::for_locale(locale.as_deref());
+    cmds::demo::create_demo_account(&h.ctx.cache, h.ctx.ui.as_ref(), lang).await
 }
 
 /// Remove the demo account and its data, leaving real accounts alone.

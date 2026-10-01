@@ -31,8 +31,23 @@
 //! text, a two-message thread, a long newsletter that exercises the
 //! rendering pipeline's width clamping, and a draft. A demo where every
 //! message looks the same tests nothing.
+//!
+//! # Which language the data is in
+//!
+//! The sample data follows the UI: German for a German UI, English for
+//! every other language ([`DemoLanguage::for_locale`]). It used to be
+//! German only, so a user who had picked English — or any of the other
+//! eight languages — tapped *Test mode* and met a German inbox, which
+//! reads as a bug, not as sample data.
+//!
+//! Two languages, not ten: sample mails are prose, and prose in eight
+//! more languages would be translation nobody on the team can check.
+//! English is the most widely read fallback. Each fixture carries both
+//! texts side by side ([`DemoLanguage::pick`]) instead of living in two
+//! parallel lists, so the two versions cannot drift apart in the
+//! *states* they cover — a test holds them to the same shape.
 
-use chrono::{DateTime, Duration, Timelike, Utc};
+use chrono::{DateTime, Duration, Local, Timelike, Utc};
 use unkai_core::UnkaiError;
 use unkai_core::models::{
     Account, ContactEmail, ContactPhone, DavSourceKind, Email, EmailEnvelope, Folder,
@@ -63,30 +78,61 @@ pub struct DemoSummary {
     pub events: u32,
 }
 
+/// The language the sample data is written in. See the module docs for
+/// why there are two.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DemoLanguage {
+    English,
+    German,
+}
+
+impl DemoLanguage {
+    /// German for a German UI (`de`, `de-AT`, `de-CH`, …), English for
+    /// everything else — including no locale at all, since English is
+    /// what the most people can read.
+    pub fn for_locale(locale: Option<&str>) -> Self {
+        match locale {
+            Some(l) if l.trim().to_ascii_lowercase().starts_with("de") => Self::German,
+            _ => Self::English,
+        }
+    }
+
+    /// The text for this language, from an English/German pair.
+    fn pick(self, english: &'static str, german: &'static str) -> &'static str {
+        match self {
+            Self::English => english,
+            Self::German => german,
+        }
+    }
+}
+
 /// Seed everything. Idempotent: running it twice leaves one demo
-/// account with freshly-regenerated data, not two.
+/// account with freshly-regenerated data, not two — and re-seeding in
+/// another language replaces the old language's data rather than
+/// mixing the two.
 pub async fn create_demo_account(
     cache: &Cache,
     ui: &dyn UiNotifier,
+    lang: DemoLanguage,
 ) -> Result<DemoSummary, UnkaiError> {
     remove_demo_account(cache).await.ok();
 
-    let account = demo_account();
+    let account = demo_account(lang);
     account_store::add_account(cache, account)?;
 
-    let folders = demo_folders();
+    let folders = demo_folders(lang);
     cache.upsert_folders(DEMO_ACCOUNT_ID, &folders)?;
 
-    let messages = seed_mail(cache)?;
+    let messages = seed_mail(cache, lang)?;
 
     // Groupware rides a `Local` DAV source — the kind that already
     // means "no remote at all, sync is a no-op, writes stay in the
     // cache". Exactly what a demo needs, and it means Calendar,
     // Contacts and Tasks need no demo-specific code: they loop over
     // Nextcloud accounts and this is simply one of them.
-    nextcloud_store::upsert_account(cache, demo_source())?;
-    let contacts = seed_contacts(cache)?;
-    let events = seed_calendar(cache)?;
+    nextcloud_store::upsert_account(cache, demo_source(lang))?;
+    let contacts = seed_contacts(cache, lang)?;
+    let events = seed_calendar(cache, lang)?;
 
     crate::mail::refresh_unread_badge(cache, ui);
 
@@ -148,10 +194,10 @@ pub fn demo_account_exists(cache: &Cache) -> bool {
         .unwrap_or(false)
 }
 
-fn demo_account() -> Account {
+fn demo_account(lang: DemoLanguage) -> Account {
     Account {
         id: DEMO_ACCOUNT_ID.to_string(),
-        display_name: "Testkonto".to_string(),
+        display_name: lang.pick("Test account", "Testkonto").to_string(),
         email: DEMO_EMAIL.to_string(),
         // Hosts are recorded for display only — `demo` short-circuits
         // every path that would dial them. `.invalid` is reserved by
@@ -178,12 +224,12 @@ fn demo_account() -> Account {
     }
 }
 
-fn demo_source() -> NextcloudAccount {
+fn demo_source(lang: DemoLanguage) -> NextcloudAccount {
     NextcloudAccount {
         id: DEMO_NC_ID.to_string(),
         server_url: "local://demo".to_string(),
         username: DEMO_EMAIL.to_string(),
-        display_name: Some("Testdaten".to_string()),
+        display_name: Some(lang.pick("Sample data", "Testdaten").to_string()),
         capabilities: None,
         trusted_certs: Vec::new(),
         kind: DavSourceKind::Local,
@@ -201,7 +247,14 @@ fn folder(name: &str, attrs: &[&str], unread: u32) -> Folder {
     }
 }
 
-fn demo_folders() -> Vec<Folder> {
+/// The one user folder. Special-use folders keep their protocol names
+/// (`Drafts`, `Sent`, …) in both languages — the app shows those by role,
+/// in the UI's language — but a user folder is shown by its name.
+fn projects_folder(lang: DemoLanguage) -> &'static str {
+    lang.pick("Projects", "Projekte")
+}
+
+fn demo_folders(lang: DemoLanguage) -> Vec<Folder> {
     vec![
         folder("INBOX", &[], 4),
         folder("Drafts", &["Drafts"], 0),
@@ -209,7 +262,7 @@ fn demo_folders() -> Vec<Folder> {
         folder("Archive", &["Archive"], 0),
         folder("Junk", &["Junk"], 0),
         folder("Trash", &["Trash"], 0),
-        folder("Projekte", &[], 0),
+        folder(projects_folder(lang), &[], 0),
     ]
 }
 
@@ -261,26 +314,41 @@ const fn msg(
     }
 }
 
-fn fixtures() -> Vec<Msg> {
+fn fixtures(lang: DemoLanguage) -> Vec<Msg> {
+    let l = |english, german| lang.pick(english, german);
+    let quarterly = l(
+        "Re: Q3 figures — numbers attached",
+        "Re: Quartalszahlen — Zahlen im Anhang",
+    );
     vec![
         Msg {
             read: false,
             starred: true,
-            attachments: &[("Q3-Zahlen.pdf", "application/pdf")],
+            attachments: match lang {
+                DemoLanguage::English => &[("Q3-figures.pdf", "application/pdf")],
+                DemoLanguage::German => &[("Q3-Zahlen.pdf", "application/pdf")],
+            },
             thread: Some("thread-quarterly"),
-            html: Some(
+            html: Some(l(
+                "<p>Hi Alex,</p><p>the Q3 figures are attached. Could you look \
+                 them over by Friday — especially the margin in row 14?</p>\
+                 <p>Best,<br>Jamie</p>",
                 "<p>Hallo Alex,</p><p>die Zahlen für Q3 sind angehängt. \
                  Schau bitte bis Freitag drüber — besonders auf die \
                  Marge in Zeile 14.</p><p>Viele Grüße<br>Jamie</p>",
-            ),
+            )),
             ..msg(
                 101,
                 "INBOX",
                 "Jamie Fischer <jamie@example.com>",
-                "Re: Quartalszahlen — Zahlen im Anhang",
+                quarterly,
                 24,
-                "Hallo Alex,\n\ndie Zahlen für Q3 sind angehängt. Schau bitte bis \
-                 Freitag drüber — besonders auf die Marge in Zeile 14.\n\nViele Grüße\nJamie",
+                l(
+                    "Hi Alex,\n\nthe Q3 figures are attached. Could you look them over \
+                     by Friday — especially the margin in row 14?\n\nBest,\nJamie",
+                    "Hallo Alex,\n\ndie Zahlen für Q3 sind angehängt. Schau bitte bis \
+                     Freitag drüber — besonders auf die Marge in Zeile 14.\n\nViele Grüße\nJamie",
+                ),
             )
         },
         Msg {
@@ -289,11 +357,21 @@ fn fixtures() -> Vec<Msg> {
             ..msg(
                 100,
                 "INBOX",
-                "Sicherheit <security@example.com>",
-                "Neue Anmeldung auf einem unbekannten Gerät",
+                l(
+                    "Security <security@example.com>",
+                    "Sicherheit <security@example.com>",
+                ),
+                l(
+                    "New sign-in on an unrecognised device",
+                    "Neue Anmeldung auf einem unbekannten Gerät",
+                ),
                 95,
-                "Wir haben eine Anmeldung aus Hamburg festgestellt. Warst du das \
-                 nicht, ändere bitte sofort dein Passwort.",
+                l(
+                    "We noticed a sign-in from Hamburg. If this wasn't you, please \
+                     change your password right away.",
+                    "Wir haben eine Anmeldung aus Hamburg festgestellt. Warst du das \
+                     nicht, ändere bitte sofort dein Passwort.",
+                ),
             )
         },
         Msg {
@@ -303,10 +381,14 @@ fn fixtures() -> Vec<Msg> {
                 99,
                 "INBOX",
                 "Robin Vale <robin@example.com>",
-                "Mittagessen am Donnerstag?",
+                l("Lunch on Thursday?", "Mittagessen am Donnerstag?"),
                 240,
-                "Hast du Donnerstag gegen 12:30 Zeit? Es gibt das neue Lokal an \
-                 der Ecke, das du dir anschauen wolltest.",
+                l(
+                    "Are you free around 12:30 on Thursday? The new place on the \
+                     corner you wanted to try has opened.",
+                    "Hast du Donnerstag gegen 12:30 Zeit? Es gibt das neue Lokal an \
+                     der Ecke, das du dir anschauen wolltest.",
+                ),
             )
         },
         Msg {
@@ -316,47 +398,83 @@ fn fixtures() -> Vec<Msg> {
                 98,
                 "INBOX",
                 "Kim Bauer <kim@example.com>",
-                "Re: Quartalszahlen — Zahlen im Anhang",
+                quarterly,
                 310,
-                "Ich habe die Marge nachgerechnet, Zeile 14 stimmt. Die Abweichung \
-                 kommt aus der Umbuchung im August.",
+                l(
+                    "I re-ran the margin and row 14 checks out. The difference comes \
+                     from the reallocation in August.",
+                    "Ich habe die Marge nachgerechnet, Zeile 14 stimmt. Die Abweichung \
+                     kommt aus der Umbuchung im August.",
+                ),
             )
         },
         Msg {
-            html: Some(
+            html: Some(l(
                 // Deliberately laid out for a 640px desktop pane: this is
                 // what `makeResponsive` has to clamp, so the demo covers
                 // the rendering pipeline and not just short plain text.
+                "<table width=\"640\" cellpadding=\"0\" style=\"width:640px\"><tr><td \
+                 style=\"font-family:Georgia,serif;color:#333\"><h1>What we built in \
+                 August</h1><p>Six things we're excited about — from faster syncing \
+                 to a new calendar.</p>\
+                 <p><a href=\"https://example.com/changelog\">Read it all →</a></p>\
+                 </td></tr></table>",
                 "<table width=\"640\" cellpadding=\"0\" style=\"width:640px\"><tr><td \
                  style=\"font-family:Georgia,serif;color:#333\"><h1>Was wir im August \
                  gebaut haben</h1><p>Sechs Dinge, über die wir uns freuen — von \
                  schnelleren Synchronisierungen bis zu einem neuen Kalender.</p>\
                  <p><a href=\"https://example.com/changelog\">Alles lesen →</a></p>\
                  </td></tr></table>",
-            ),
+            )),
             ..msg(
                 97,
                 "INBOX",
-                "Produkt-Newsletter <news@example.com>",
-                "Sechs Dinge, die wir im August ausgeliefert haben",
+                l(
+                    "Product newsletter <news@example.com>",
+                    "Produkt-Newsletter <news@example.com>",
+                ),
+                l(
+                    "Six things we shipped in August",
+                    "Sechs Dinge, die wir im August ausgeliefert haben",
+                ),
                 1500,
-                "Sechs Dinge, über die wir uns freuen — von schnelleren \
-                 Synchronisierungen bis zu einem neuen Kalender.",
+                l(
+                    "Six things we're excited about — from faster syncing to a new \
+                     calendar.",
+                    "Sechs Dinge, über die wir uns freuen — von schnelleren \
+                     Synchronisierungen bis zu einem neuen Kalender.",
+                ),
             )
         },
         Msg {
-            attachments: &[
-                ("Grundriss.png", "image/png"),
-                ("Angebot.pdf", "application/pdf"),
-            ],
+            attachments: match lang {
+                DemoLanguage::English => &[
+                    ("floor-plan.png", "image/png"),
+                    ("quote.pdf", "application/pdf"),
+                ],
+                DemoLanguage::German => &[
+                    ("Grundriss.png", "image/png"),
+                    ("Angebot.pdf", "application/pdf"),
+                ],
+            },
             ..msg(
                 96,
                 "INBOX",
-                "Tischlerei Nord <info@example.com>",
-                "Ihr Angebot für die Einbauschränke",
+                l(
+                    "Nord Carpentry <info@example.com>",
+                    "Tischlerei Nord <info@example.com>",
+                ),
+                l(
+                    "Your quote for the built-in wardrobes",
+                    "Ihr Angebot für die Einbauschränke",
+                ),
                 2900,
-                "Guten Tag,\n\nanbei finden Sie das besprochene Angebot sowie den \
-                 Grundriss mit den eingezeichneten Maßen.",
+                l(
+                    "Hello,\n\nplease find attached the quote we discussed and the \
+                     floor plan with the measurements marked in.",
+                    "Guten Tag,\n\nanbei finden Sie das besprochene Angebot sowie den \
+                     Grundriss mit den eingezeichneten Maßen.",
+                ),
             )
         },
         Msg {
@@ -365,9 +483,15 @@ fn fixtures() -> Vec<Msg> {
                 95,
                 "INBOX",
                 "CI <ci@example.com>",
-                "[unkai-mail] Build auf main erfolgreich",
+                l(
+                    "[unkai-mail] Build passed on main",
+                    "[unkai-mail] Build auf main erfolgreich",
+                ),
                 4300,
-                "Alle 342 Tests grün. Dauer: 4m 12s.",
+                l(
+                    "All 342 tests passed. Took 4m 12s.",
+                    "Alle 342 Tests grün. Dauer: 4m 12s.",
+                ),
             )
         },
         // ── Other folders, so those screens are not empty ──────────
@@ -378,9 +502,12 @@ fn fixtures() -> Vec<Msg> {
                 60,
                 "Sent",
                 "Alex Morgan <you@example.com>",
-                "Re: Quartalszahlen — Zahlen im Anhang",
+                quarterly,
                 180,
-                "Danke, ich schaue es mir morgen früh an.",
+                l(
+                    "Thanks, I'll take a look first thing tomorrow.",
+                    "Danke, ich schaue es mir morgen früh an.",
+                ),
             )
         },
         Msg {
@@ -390,49 +517,74 @@ fn fixtures() -> Vec<Msg> {
                 61,
                 "Drafts",
                 "Alex Morgan <you@example.com>",
-                "Donnerstag passt",
+                l("Thursday works", "Donnerstag passt"),
                 45,
-                "Donnerstag 12:30 passt mir gut. Soll ich einen Tisch",
+                // Unfinished on purpose: it is a draft.
+                l(
+                    "Thursday at 12:30 works for me. Shall I book a table",
+                    "Donnerstag 12:30 passt mir gut. Soll ich einen Tisch",
+                ),
             )
         },
         msg(
             62,
             "Archive",
-            "Reisebüro <buchung@example.com>",
-            "Deine Buchungsbestätigung",
+            l(
+                "Travel desk <booking@example.com>",
+                "Reisebüro <booking@example.com>",
+            ),
+            l("Your booking confirmation", "Deine Buchungsbestätigung"),
             20000,
-            "Deine Reise ist bestätigt. Abflug 09:40, Terminal 2.",
+            l(
+                "Your trip is confirmed. Departure 09:40, Terminal 2.",
+                "Deine Reise ist bestätigt. Abflug 09:40, Terminal 2.",
+            ),
         ),
         msg(
             63,
             "Junk",
-            "Gewinnspiel <noreply@example.com>",
-            "Sie haben gewonnen!!!",
+            l(
+                "Prize draw <noreply@example.com>",
+                "Gewinnspiel <noreply@example.com>",
+            ),
+            l("You have won!!!", "Sie haben gewonnen!!!"),
             8000,
-            "Klicken Sie hier, um Ihren Preis abzuholen.",
+            l(
+                "Click here to claim your prize.",
+                "Klicken Sie hier, um Ihren Preis abzuholen.",
+            ),
         ),
         msg(
             64,
             "Trash",
-            "Netzbetreiber <info@example.com>",
-            "Ihre Rechnung für August",
+            l(
+                "Mobile carrier <info@example.com>",
+                "Netzbetreiber <info@example.com>",
+            ),
+            l("Your bill for August", "Ihre Rechnung für August"),
             30000,
-            "Ihre Rechnung steht zum Abruf bereit.",
+            l(
+                "Your bill is ready to view.",
+                "Ihre Rechnung steht zum Abruf bereit.",
+            ),
         ),
         msg(
             65,
-            "Projekte",
+            projects_folder(lang),
             "Nadia Roth <nadia@example.com>",
-            "Rewrite: Stand der Dinge",
+            l("Rewrite: where things stand", "Rewrite: Stand der Dinge"),
             5000,
-            "Kurzer Zwischenstand: die Migration läuft, zwei Endpunkte fehlen noch.",
+            l(
+                "Quick update: the migration is running, two endpoints are still missing.",
+                "Kurzer Zwischenstand: die Migration läuft, zwei Endpunkte fehlen noch.",
+            ),
         ),
     ]
 }
 
-fn seed_mail(cache: &Cache) -> Result<u32, UnkaiError> {
+fn seed_mail(cache: &Cache, lang: DemoLanguage) -> Result<u32, UnkaiError> {
     let now = Utc::now();
-    let all = fixtures();
+    let all = fixtures(lang);
 
     let envelopes: Vec<EmailEnvelope> = all
         .iter()
@@ -539,7 +691,8 @@ fn contact(
     // stored vCard, so a malformed one would only surface later, as a
     // corrupted contact after an edit. Real vCard 3.0 it is.
     let mut vcard = format!(
-        "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:{uid}\r\nFN:{name}\r\n         EMAIL;TYPE=HOME:{email}\r\nTEL;TYPE=CELL:{phone}\r\n"
+        "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:{uid}\r\nFN:{name}\r\n\
+         EMAIL;TYPE=HOME:{email}\r\nTEL;TYPE=CELL:{phone}\r\n"
     );
     if let Some(o) = org {
         vcard.push_str(&format!("ORG:{o}\r\n"));
@@ -577,25 +730,28 @@ fn contact(
     }
 }
 
-fn seed_contacts(cache: &Cache) -> Result<u32, UnkaiError> {
+fn demo_contacts(lang: DemoLanguage) -> Vec<ContactRow> {
+    let l = |english, german| lang.pick(english, german);
     // The senders in the mailbox are in here on purpose: the mail list
     // resolves a sender's card to show their photo and name, so a demo
     // whose contacts and mail don't overlap would leave that path
-    // untested.
-    let rows = vec![
+    // untested. The English numbers are in 555-0100…0199, the range
+    // reserved for fiction, so none of them can ring a real phone.
+    let nordwerk = l("Nordwerk Ltd", "Nordwerk GmbH");
+    vec![
         contact(
             1,
             "Jamie Fischer",
             "jamie@example.com",
-            "+49 151 2345678",
-            Some("Nordwerk GmbH"),
-            Some("Leitung Finanzen"),
+            l("+1 202 555 0101", "+49 151 2345678"),
+            Some(nordwerk),
+            Some(l("Head of Finance", "Leitung Finanzen")),
         ),
         contact(
             2,
             "Robin Vale",
             "robin@example.com",
-            "+49 160 9876543",
+            l("+1 202 555 0102", "+49 160 9876543"),
             None,
             None,
         ),
@@ -603,49 +759,53 @@ fn seed_contacts(cache: &Cache) -> Result<u32, UnkaiError> {
             3,
             "Kim Bauer",
             "kim@example.com",
-            "+49 170 5551234",
-            Some("Nordwerk GmbH"),
-            Some("Controlling"),
+            l("+1 202 555 0103", "+49 170 5551234"),
+            Some(nordwerk),
+            Some(l("Financial Controller", "Controlling")),
         ),
         contact(
             4,
             "Nadia Roth",
             "nadia@example.com",
-            "+49 152 4443322",
+            l("+1 202 555 0104", "+49 152 4443322"),
             Some("Firn Labs"),
-            Some("Entwicklung"),
+            Some(l("Engineering", "Entwicklung")),
         ),
         contact(
             5,
             "Sam Weber",
             "sam@example.com",
-            "+49 176 1122334",
+            l("+1 202 555 0105", "+49 176 1122334"),
             None,
-            Some("Fotografie"),
+            Some(l("Photography", "Fotografie")),
         ),
         contact(
             6,
             "Toni Lang",
             "toni@example.com",
-            "+49 159 6677889",
-            Some("Tischlerei Nord"),
+            l("+1 202 555 0106", "+49 159 6677889"),
+            Some(l("Nord Carpentry", "Tischlerei Nord")),
             None,
         ),
         contact(
             7,
             "Alex Morgan",
             "you@example.com",
-            "+49 151 0000000",
+            l("+1 202 555 0100", "+49 151 0000000"),
             None,
             None,
         ),
-    ];
+    ]
+}
+
+fn seed_contacts(cache: &Cache, lang: DemoLanguage) -> Result<u32, UnkaiError> {
+    let rows = demo_contacts(lang);
     let count = rows.len() as u32;
 
     cache.apply_contact_delta(
         DEMO_NC_ID,
         DEMO_ADDRESSBOOK,
-        Some("Kontakte"),
+        Some(lang.pick("Contacts", "Kontakte")),
         &rows,
         &[],
         None,
@@ -710,12 +870,30 @@ fn event(
     }
 }
 
-fn seed_calendar(cache: &Cache) -> Result<u32, UnkaiError> {
+/// 09:00 today on the device's clock, so the agenda always has something
+/// under "Today" whenever the demo is created.
+///
+/// It used to be 09:00 *UTC*, whose date is not the user's date for part
+/// of every day — after local midnight in Europe, every evening in the
+/// Americas — and the day's events then sat on yesterday or tomorrow.
+/// `Local` is the same clock the search's date operators use.
+fn today_at_nine() -> DateTime<Utc> {
+    Local::now()
+        .with_hour(9)
+        .and_then(|d| d.with_minute(0))
+        .and_then(|d| d.with_second(0))
+        .and_then(|d| d.with_nanosecond(0))
+        .map(|d| d.with_timezone(&Utc))
+        .unwrap_or_else(Utc::now)
+}
+
+fn seed_calendar(cache: &Cache, lang: DemoLanguage) -> Result<u32, UnkaiError> {
+    let l = |english, german| lang.pick(english, german);
     cache.upsert_calendars(
         DEMO_NC_ID,
         &[CalendarRow {
             path: DEMO_CALENDAR_PATH.to_string(),
-            display_name: "Persönlich".to_string(),
+            display_name: l("Personal", "Persönlich").to_string(),
             color: Some("#3b82f6".to_string()),
             ctag: None,
             hidden: false,
@@ -731,43 +909,47 @@ fn seed_calendar(cache: &Cache) -> Result<u32, UnkaiError> {
         .map(|c| c.id)
         .ok_or_else(|| UnkaiError::Other("demo calendar was not created".into()))?;
 
-    // Anchored to today at a whole hour, so the agenda always has
-    // something in "Heute" whenever the demo is created.
-    let today9 = Utc::now()
-        .with_hour(9)
-        .and_then(|d| d.with_minute(0))
-        .and_then(|d| d.with_second(0))
-        .unwrap_or_else(Utc::now);
+    let today9 = today_at_nine();
 
     let rows = vec![
-        event(1, "Team-Standup", today9, 15, Some("Büro / Raum 2"), None),
+        event(
+            1,
+            l("Team stand-up", "Team-Standup"),
+            today9,
+            15,
+            Some(l("Office / Room 2", "Büro / Raum 2")),
+            None,
+        ),
         event(
             2,
-            "Quartalsreview",
+            l("Quarterly review", "Quartalsreview"),
             today9 + Duration::hours(2),
             60,
             None,
-            Some("https://talk.example.com/call/quartal"),
+            Some(l(
+                "https://talk.example.com/call/quarterly",
+                "https://talk.example.com/call/quartal",
+            )),
         ),
         event(
             3,
-            "Mittagessen mit Robin",
+            l("Lunch with Robin", "Mittagessen mit Robin"),
             today9 + Duration::hours(3) + Duration::minutes(30),
             60,
-            Some("Lokal an der Ecke"),
+            Some(l("The place on the corner", "Lokal an der Ecke")),
             None,
         ),
         event(
             4,
-            "Zahnarzt",
+            l("Dentist", "Zahnarzt"),
             today9 + Duration::days(1) + Duration::hours(7),
             45,
-            Some("Praxis Dr. Lang"),
+            Some(l("Dr Lang's practice", "Praxis Dr. Lang")),
             None,
         ),
         event(
             5,
-            "Sprint-Planung",
+            l("Sprint planning", "Sprint-Planung"),
             today9 + Duration::days(2),
             90,
             None,
@@ -775,7 +957,7 @@ fn seed_calendar(cache: &Cache) -> Result<u32, UnkaiError> {
         ),
         event(
             6,
-            "Geburtstag Sam",
+            l("Sam's birthday", "Geburtstag Sam"),
             today9 + Duration::days(5) - Duration::hours(3),
             720,
             None,
@@ -791,7 +973,7 @@ fn seed_calendar(cache: &Cache) -> Result<u32, UnkaiError> {
         ),
         event(
             8,
-            "Abgabe Angebot",
+            l("Quote due", "Abgabe Angebot"),
             today9 - Duration::days(3),
             30,
             None,
@@ -887,7 +1069,7 @@ mod tests {
     #[tokio::test]
     async fn removing_the_demo_leaves_no_demo_data_behind() {
         let cache = cache();
-        let summary = create_demo_account(&cache, &NullNotifier)
+        let summary = create_demo_account(&cache, &NullNotifier, DemoLanguage::English)
             .await
             .expect("seed demo");
         assert!(summary.messages > 0 && summary.contacts > 0 && summary.events > 0);
@@ -935,10 +1117,10 @@ mod tests {
     #[tokio::test]
     async fn removing_the_demo_keeps_other_accounts() {
         let cache = cache();
-        create_demo_account(&cache, &NullNotifier)
+        create_demo_account(&cache, &NullNotifier, DemoLanguage::English)
             .await
             .expect("seed demo");
-        let mut real = demo_account();
+        let mut real = demo_account(DemoLanguage::English);
         real.id = "real-account".to_string();
         real.demo = false;
         account_store::add_account(&cache, real).expect("add real account");
@@ -956,7 +1138,7 @@ mod tests {
     #[tokio::test]
     async fn removal_is_idempotent_and_finishes_a_half_removed_demo() {
         let cache = cache();
-        create_demo_account(&cache, &NullNotifier)
+        create_demo_account(&cache, &NullNotifier, DemoLanguage::English)
             .await
             .expect("seed demo");
         account_store::remove_account(&cache, DEMO_ACCOUNT_ID).expect("remove mail half");
@@ -981,7 +1163,7 @@ mod tests {
     #[tokio::test]
     async fn removing_the_demo_as_an_account_cleans_up_everything() {
         let cache = cache();
-        create_demo_account(&cache, &NullNotifier)
+        create_demo_account(&cache, &NullNotifier, DemoLanguage::English)
             .await
             .expect("seed demo");
         let notify =
@@ -996,16 +1178,170 @@ mod tests {
         assert!(cache.list_calendars(DEMO_NC_ID).unwrap().is_empty());
     }
 
+    /// Every seeded vCard reads back as the contact it describes. An
+    /// edit round-trips `vcard_raw`, so a card whose text disagrees with
+    /// its row turns into a different contact the first time someone
+    /// taps Save.
+    #[test]
+    fn seeded_vcards_parse_back_to_the_same_contact() {
+        let both = [DemoLanguage::English, DemoLanguage::German];
+        for row in both.into_iter().flat_map(demo_contacts) {
+            let card = unkai_carddav::vcard::parse_vcard(&row.vcard_raw).expect("parse");
+            assert_eq!(card.display_name, row.display_name, "{}", row.vcard_raw);
+            let emails: Vec<_> = card.emails.iter().map(|e| e.value.as_str()).collect();
+            let expected: Vec<_> = row.emails.iter().map(|e| e.value.as_str()).collect();
+            assert_eq!(emails, expected, "{}", row.vcard_raw);
+        }
+    }
+
+    /// The UI's language picks the data's: German for any German
+    /// locale, English for everything else, including no locale.
+    #[test]
+    fn the_language_follows_the_locale() {
+        for de in ["de", "de-DE", "de-AT", "de_CH", "DE"] {
+            assert_eq!(
+                DemoLanguage::for_locale(Some(de)),
+                DemoLanguage::German,
+                "{de}"
+            );
+        }
+        for other in ["en", "en-GB", "fr", "ja", "pt-BR", "", "dk"] {
+            assert_eq!(
+                DemoLanguage::for_locale(Some(other)),
+                DemoLanguage::English,
+                "{other}"
+            );
+        }
+        assert_eq!(DemoLanguage::for_locale(None), DemoLanguage::English);
+    }
+
+    /// Both languages cover the same states — the point of the
+    /// fixtures. Only the words may differ.
+    #[test]
+    fn both_languages_seed_the_same_states() {
+        let en = fixtures(DemoLanguage::English);
+        let de = fixtures(DemoLanguage::German);
+        assert_eq!(en.len(), de.len());
+        for (e, d) in en.iter().zip(&de) {
+            assert_eq!(e.uid, d.uid);
+            let same_folder = e.folder == d.folder
+                || (e.folder == projects_folder(DemoLanguage::English)
+                    && d.folder == projects_folder(DemoLanguage::German));
+            assert!(same_folder, "uid {}: {} vs {}", e.uid, e.folder, d.folder);
+            assert_eq!(
+                (e.minutes_ago, e.read, e.starred, e.pinned),
+                (d.minutes_ago, d.read, d.starred, d.pinned),
+                "uid {}",
+                e.uid
+            );
+            assert_eq!(
+                (e.priority, e.thread),
+                (d.priority, d.thread),
+                "uid {}",
+                e.uid
+            );
+            assert_eq!(e.attachments.len(), d.attachments.len(), "uid {}", e.uid);
+            assert_eq!(e.html.is_some(), d.html.is_some(), "uid {}", e.uid);
+            assert_eq!(
+                e.from.split('<').nth(1),
+                d.from.split('<').nth(1),
+                "uid {}: sender addresses are the same in both languages (contact cards match by address)",
+                e.uid
+            );
+        }
+        let (ec, dc) = (
+            demo_contacts(DemoLanguage::English),
+            demo_contacts(DemoLanguage::German),
+        );
+        assert_eq!(ec.len(), dc.len());
+        for (e, d) in ec.iter().zip(&dc) {
+            assert_eq!(
+                (&e.display_name, &e.emails[0].value),
+                (&d.display_name, &d.emails[0].value)
+            );
+        }
+    }
+
+    /// A cheap net for a missed translation: no German letters in the
+    /// English sample data.
+    #[test]
+    fn english_sample_data_has_no_german_left_in_it() {
+        let lang = DemoLanguage::English;
+        let mut texts: Vec<String> = Vec::new();
+        for m in fixtures(lang) {
+            texts.extend([m.from, m.to, m.subject, m.text, m.folder].map(String::from));
+            texts.extend(m.html.map(String::from));
+            texts.extend(m.attachments.iter().map(|(name, _)| name.to_string()));
+        }
+        for c in demo_contacts(lang) {
+            texts.push(c.vcard_raw);
+        }
+        texts.push(demo_account(lang).display_name);
+        texts.extend(demo_source(lang).display_name);
+        for t in texts {
+            assert!(
+                !t.contains(['ä', 'ö', 'ü', 'Ä', 'Ö', 'Ü', 'ß']),
+                "German in: {t}"
+            );
+        }
+    }
+
+    /// Re-seeding in the other language replaces the data instead of
+    /// mixing the two — the user folder's name differs per language, so
+    /// a leftover would show as a second, empty folder.
+    #[tokio::test]
+    async fn re_seeding_in_another_language_replaces_the_data() {
+        let cache = cache();
+        create_demo_account(&cache, &NullNotifier, DemoLanguage::English)
+            .await
+            .expect("seed in English");
+        create_demo_account(&cache, &NullNotifier, DemoLanguage::German)
+            .await
+            .expect("seed in German");
+
+        let folders: Vec<String> = cache
+            .get_folders(DEMO_ACCOUNT_ID)
+            .unwrap()
+            .into_iter()
+            .map(|f| f.name)
+            .collect();
+        assert!(folders.contains(&"Projekte".to_string()), "{folders:?}");
+        assert!(!folders.contains(&"Projects".to_string()), "{folders:?}");
+
+        let subjects: Vec<String> = cache
+            .get_envelopes(DEMO_ACCOUNT_ID, "INBOX", 500)
+            .unwrap()
+            .into_iter()
+            .map(|e| e.subject)
+            .collect();
+        assert!(
+            subjects.iter().any(|s| s == "Mittagessen am Donnerstag?"),
+            "{subjects:?}"
+        );
+        assert!(
+            !subjects.iter().any(|s| s == "Lunch on Thursday?"),
+            "{subjects:?}"
+        );
+    }
+
+    /// "Today" in the demo calendar is the user's today, not UTC's.
+    #[test]
+    fn todays_events_land_on_the_local_date() {
+        let nine = today_at_nine().with_timezone(&Local);
+        assert_eq!(nine.date_naive(), Local::now().date_naive());
+        assert_eq!((nine.hour(), nine.minute()), (9, 0));
+    }
+
     /// Loading the demo twice replaces it rather than doubling it.
     #[tokio::test]
     async fn re_creating_the_demo_does_not_duplicate_it() {
         let cache = cache();
-        create_demo_account(&cache, &NullNotifier)
+        create_demo_account(&cache, &NullNotifier, DemoLanguage::English)
             .await
             .expect("seed demo");
         let unread = cache.total_unread_count().unwrap();
         let contacts = cache.list_contacts(None, |_, _| {}).unwrap().len();
-        create_demo_account(&cache, &NullNotifier)
+        create_demo_account(&cache, &NullNotifier, DemoLanguage::English)
             .await
             .expect("seed demo again");
         assert_eq!(cache.total_unread_count().unwrap(), unread);

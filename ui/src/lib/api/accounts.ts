@@ -86,9 +86,12 @@ export interface DemoSummary {
   events: number
 }
 
-/** Create — or re-create — the demo account and its data. */
-export function createDemoAccount(): Promise<DemoSummary> {
-  return call('create_demo_account')
+/**
+ * Create — or re-create — the demo account and its data. `locale` is the
+ * UI's language: the sample data is German for `de`, English otherwise.
+ */
+export function createDemoAccount(locale?: string): Promise<DemoSummary> {
+  return call('create_demo_account', { locale })
 }
 
 /** Remove the demo account. Real accounts are untouched. */
