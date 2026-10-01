@@ -4733,9 +4733,9 @@ dependencies = [
 
 [[package]]
 name = "quick-xml"
-version = "0.41.0"
+version = "0.42.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e660451e55124f798a69a5af3f49ccfbefbd41910eefd25caf2393e1f3473ec1"
+checksum = "41b1177fdf999d2321d3fb46ff47159d9c1fb9ad66a4879f8c50a0b504615e9b"
 dependencies = [
  "memchr",
  "serde",
@@ -7176,7 +7176,7 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "ical",
- "quick-xml 0.41.0",
+ "quick-xml 0.42.0",
  "reqwest 0.12.28",
  "rrule",
  "serde",
@@ -7193,7 +7193,7 @@ version = "0.4.2"
 dependencies = [
  "base64 0.23.1",
  "ical",
- "quick-xml 0.41.0",
+ "quick-xml 0.42.0",
  "reqwest 0.12.28",
  "serde",
  "thiserror 2.0.20",
@@ -7270,7 +7270,7 @@ name = "unkai-discovery"
 version = "0.4.2"
 dependencies = [
  "hickory-resolver",
- "quick-xml 0.41.0",
+ "quick-xml 0.42.0",
  "reqwest 0.12.28",
  "serde",
  "thiserror 2.0.20",
@@ -7386,7 +7386,7 @@ name = "unkai-nextcloud"
 version = "0.4.2"
 dependencies = [
  "chrono",
- "quick-xml 0.41.0",
+ "quick-xml 0.42.0",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
