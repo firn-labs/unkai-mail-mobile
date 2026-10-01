@@ -1,0 +1,26 @@
+{
+  "name": "unkai-mobile",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Unkai Mail for iOS and Android \u2014 the Tauri mobile shell around the Rust core.",
+  "scripts": {
+    "tauri": "tauri",
+    "ios:init": "tauri ios init",
+    "ios:dev": "tauri ios dev",
+    "ios:build": "npm run ios:clean && tauri ios build",
+    "ios:sim": "npm run ios:clean && tauri ios build --debug --target aarch64-sim",
+    "_comment_ios_clean": "tauri ios build exports through gen/apple/build and fails with 'Directory not empty' when any previous output is still there \u2014 clearing the archive alone is not enough, the per-arch dir collides too. The whole build dir is generated, so dropping it costs only the re-link.",
+    "ios:clean": "rm -rf src-tauri/gen/apple/build",
+    "ios:open": "tauri ios open",
+    "android:init": "tauri android init",
+    "android:dev": "tauri android dev",
+    "dev": "tauri dev",
+    "ui:dev": "npm --prefix ui run dev",
+    "ui:build": "npm --prefix ui run build",
+    "ui:check": "npm --prefix ui run check",
+    "ui:test": "npm --prefix ui run test"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

@@ -1,0 +1,30 @@
+[package]
+name = "unkai-crypto"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+unkai-core.workspace = true
+serde.workspace = true
+tracing.workspace = true
+# Crate name on crates.io is `pgp`; we rename it locally to `rpgp`
+# to avoid talking past ourselves — "pgp" the crate vs "PGP" the
+# protocol family is one collision too many in code.
+rpgp = { package = "pgp", version = "0.19" }
+rand = { workspace = true }
+thiserror = { workspace = true }
+# S/MIME (#338).  See workspace Cargo.toml for the dependency
+# rationale — we use openssl's CMS bindings as the reference
+# S/MIME implementation rather than assembling RFC 5652 ASN.1
+# from RustCrypto primitives ourselves.
+openssl = { workspace = true }
+# Bundled Mozilla root CAs in full self-signed DER form, fed into an
+# OpenSSL `X509Store` for S/MIME signature chain validation (#338
+# Chunk 7).  `rustls-pki-types` is the `CertificateDer` wrapper the
+# bundle exposes; we only borrow its bytes via `as_ref()` into
+# `X509::from_der`.
+webpki-root-certs = { workspace = true }
+rustls-pki-types = { workspace = true }
+# Zeroize our own cleartext passphrase buffers on drop (#370).
+zeroize = { workspace = true }

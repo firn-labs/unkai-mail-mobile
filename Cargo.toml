@@ -1,0 +1,211 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/unkai-core",
+    "crates/unkai-imap",
+    "crates/unkai-smtp",
+    "crates/unkai-jmap",
+    "crates/unkai-caldav",
+    "crates/unkai-carddav",
+    "crates/unkai-nextcloud",
+    "crates/unkai-store",
+    "crates/unkai-discovery",
+    "crates/unkai-crypto",
+    "crates/unkai-mcp",
+    "crates/unkai-system",
+    "crates/unkai-commands",
+    "src-tauri",
+]
+
+[workspace.package]
+version = "0.4.2"
+edition = "2024"
+license = "GPL-3.0"
+repository = "https://github.com/firn-labs/unkai-mail-mobile"
+# We never publish individual `unkai-*` crates to crates.io —
+# they're internal building blocks of the desktop app.  Marking
+# them `publish = false` lets cargo-deny treat them as private
+# (so `private = { ignore = true }` in deny.toml takes effect)
+# and lets the `allow-wildcard-paths` flag exempt our internal
+# path-deps from the wildcard ban.
+publish = false
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Error handling
+thiserror = "2"
+anyhow = "1"
+# Logging
+tracing = "0.1"
+tracing-subscriber = "0.3"
+# HTTP client (for Nextcloud API, JMAP, CalDAV, CardDAV)
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+# Date/time
+chrono = { version = "0.4", features = ["serde"] }
+# IANA timezone database. Used by unkai-caldav to resolve
+# `DTSTART;TZID=America/New_York:...`-style values to UTC. The crate
+# bundles the tz database (~600 KB) so we don't need system tzdata.
+chrono-tz = "0.10"
+# RFC 5545 recurrence-rule engine. Used by unkai-caldav to expand a
+# VEVENT master's RRULE/RDATE/EXDATE into concrete occurrences over a
+# requested date window. The crate handles DST transitions, BYDAY /
+# BYMONTHDAY etc. quirks, and UNTIL semantics — things we really
+# don't want to reimplement.
+rrule = "0.14"
+# App data directories
+dirs = "6"
+# OS keychain access (Credential Manager / Keychain / Secret Service)
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
+# SQLite for the local mail cache. `bundled-sqlcipher-vendored-openssl`
+# ships SQLCipher (a fork of SQLite that adds AES-256 transparent
+# at-rest encryption) along with a vendored OpenSSL, so users don't
+# need a system SQLite or OpenSSL installed. Every connection has to
+# run `PRAGMA key = '...'` before issuing queries — see pool.rs.
+# `chrono` enables conversion between SQL timestamps and DateTime<Utc>.
+rusqlite = { version = "0.32", features = ["bundled-sqlcipher-vendored-openssl", "chrono"] }
+# Connection pool — readers don't block each other, writers serialize cleanly.
+r2d2 = "0.8"
+r2d2_sqlite = "0.25"
+# Cryptographically secure random bytes for generating the DB master key.
+getrandom = "0.4"
+# Hex encoding for the keychain-stored master key and the SQLCipher
+# `PRAGMA key = "x'<hex>'"` literal syntax.
+hex = "0.4"
+# IMAP
+async-imap = "0.11"
+futures = "0.3"
+# Pure-Rust TLS used by both unkai-imap and unkai-smtp so we have
+# one TLS stack, one custom cert verifier, and one set of trust
+# storage. `ring` is the crypto provider that lettre defaults to —
+# matching it keeps both halves linking the same crypto.
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "ring"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["tls12", "ring"] }
+# Mozilla's curated CA bundle. `webpki-roots` pins the public roots
+# at build time so behaviour is identical across Win/Mac/Linux —
+# the OS native trust stores would each give us slightly different
+# answers.
+webpki-roots = "1.0"
+# Sibling of `webpki-roots` from the same rustls project and the same
+# Mozilla / CCADB source data, but ships the *full self-signed DER*
+# certificate for each root rather than the trust-anchor SPKI form.
+# `webpki-roots` is perfect for rustls (it only needs the anchor's
+# public key + name constraints), but S/MIME chain validation runs
+# through OpenSSL's `X509Store`, which needs whole `X509` certs — so
+# we pull the full-cert variant here for #338's trust model.
+webpki-root-certs = "1.0"
+rustls-pki-types = "1"
+# Adapters between tokio I/O traits and futures-io traits. async-imap
+# is generic over `futures-io::AsyncRead + AsyncWrite`, but our TLS
+# stream is a `tokio::AsyncRead`; `Compat` bridges the two.
+tokio-util = { version = "0.7", features = ["compat"] }
+# SHA-256 for the displayable cert fingerprint shown in the
+# "trust this server?" prompt. Tiny crate, no surprises.
+sha2 = "0.11"
+# SMTP
+lettre = { version = "0.11", default-features = false, features = ["tokio1-rustls-tls", "smtp-transport", "builder"] }
+# MIME / email parsing (headers, bodies, encodings)
+mail-parser = "0.11"
+# XML for CardDAV / CalDAV PROPFIND + REPORT bodies and the multistatus
+# responses they return. We hand-roll the small XML we emit and parse
+# the responses with quick-xml's pull parser; no full DAV client crate
+# is needed.
+quick-xml = { version = "0.41", features = ["serialize"] }
+# vCard 3 / 4 + iCalendar parser. Backs unkai-carddav's contact import
+# (vcard feature) and unkai-caldav's event sync (ical feature). Default
+# features also pull in a generator we don't need, so we ask only for
+# the two parser modules we actually use.
+ical = { version = "0.11", default-features = false, features = ["vcard", "ical"] }
+# vCard PHOTO is base64-encoded inline; we decode once on import so
+# the cached row holds raw image bytes.
+base64 = "0.23"
+# AES-256-GCM for the FIDO wrap of the SQLCipher master key
+# (#164).  Used to seal the master key under a per-credential
+# PRF output so the plain key never persists in the keychain
+# once FIDO mode is enabled.
+aes-gcm = "0.11"
+# PBKDF2-HMAC-SHA-256 for the passphrase-derived master-key wrap
+# (#164).  Sibling shape to the FIDO PRF wrap — same envelope,
+# different way to produce the 32-byte unwrap key.  Doubles as
+# the Phase 1B recovery passphrase so a lost hardware key
+# doesn't permanently lock the cache.
+pbkdf2 = "0.13"
+hmac = "0.13"
+# UUIDs for fresh vCard UIDs on contact create — we picked `urn:uuid:`
+# form to match what other CardDAV clients emit.
+uuid = { version = "1", features = ["v4"] }
+# Async DNS resolver. Used by unkai-discovery for SRV-record
+# autoconfiguration (`_imaps._tcp.<domain>` etc.) when a provider
+# doesn't expose a Mozilla autoconfig endpoint. Pure Rust, no
+# system-resolver dependency.
+hickory-resolver = "0.26"
+# OpenPGP (RFC 4880 / RFC 9580) for end-to-end mail encryption
+# and signing (#57).  Pure-Rust, dual MIT/Apache-2.0 licensed,
+# actively maintained and used in production by Delta Chat.
+# Crate name on crates.io is `pgp`; we alias it locally as `rpgp`
+# in `unkai-crypto`'s Cargo.toml to disambiguate from the protocol
+# acronym.  Pinned at the minor — the 0.x line still ships
+# breaking changes between minors.
+pgp = "0.19"
+# S/MIME (RFC 8551 / RFC 5652 CMS) sign + verify + encrypt +
+# decrypt and PKCS#12 import for the X.509-based half of mail
+# encryption (#338).  Pure Rust bindings around OpenSSL's CMS
+# implementation — the reference S/MIME implementation everyone
+# else interops against.  We get the C OpenSSL build effectively
+# for free because SQLCipher already statically vendors it (see
+# `rusqlite`'s `bundled-sqlcipher-vendored-openssl` feature
+# above); adding the bindings here just gives us a Rust shim
+# onto that same library.  `vendored` forces the crate to build
+# its own OpenSSL too — necessary on Windows where there is no
+# system OpenSSL.  Worst case is two static copies in the final
+# binary, which is acceptable for now.
+openssl = { version = "0.10", features = ["vendored"] }
+# CSPRNG passed to rpgp for session-key generation when
+# encrypting.  Version pinned to whatever the current `pgp`
+# release re-exports in its public API to avoid two `rand`s
+# in the dep graph.
+rand = "0.8"
+# Scrubs cleartext secret buffers (passphrases) from memory on
+# drop (#370).  Already in the tree transitively via `pgp`/`rpgp`;
+# promoting it to a direct dep so `unkai-crypto` can wrap its own
+# passphrase buffers in `Zeroizing` rather than leaving them as
+# plain `Vec<u8>` that linger in freed heap until reuse.
+zeroize = "1.8"
+# MCP (Model Context Protocol) server SDK for the local AI
+# integration surface (#438).  Official Rust SDK from the MCP
+# project.  We only enable the server half plus the streamable-HTTP
+# transport — no client features, and crucially no `reqwest`/TLS
+# features: the server binds plain HTTP on 127.0.0.1 only, so no
+# second TLS stack appears next to the vendored-OpenSSL build.
+rmcp = { version = "3.1", default-features = false, features = ["server", "transport-streamable-http-server"] }
+# HTTP framework the MCP endpoint is mounted in.  rmcp's
+# `StreamableHttpService` is a tower `Service`, and axum is the
+# thinnest maintained way to wrap it with the middleware we need
+# (bearer-token auth, Host/Origin validation, vault-locked
+# rejection).  Same hyper 1.x stack rmcp already brings in.
+axum = "0.8"
+# Constant-time byte comparison for the MCP bearer-token check
+# (#438).  Comparing secrets with `==` leaks how many leading
+# bytes matched through timing; `subtle`'s `ct_eq` is the
+# standard, dependency-free fix from the dalek-cryptography team.
+subtle = "2"
+# Internal crates
+unkai-core = { path = "crates/unkai-core" }
+unkai-imap = { path = "crates/unkai-imap" }
+unkai-smtp = { path = "crates/unkai-smtp" }
+unkai-jmap = { path = "crates/unkai-jmap" }
+unkai-caldav = { path = "crates/unkai-caldav" }
+unkai-carddav = { path = "crates/unkai-carddav" }
+unkai-nextcloud = { path = "crates/unkai-nextcloud" }
+unkai-store = { path = "crates/unkai-store" }
+unkai-discovery = { path = "crates/unkai-discovery" }
+unkai-crypto = { path = "crates/unkai-crypto" }
+unkai-mcp = { path = "crates/unkai-mcp" }
+# The device's own calendar / contacts / reminders databases (iOS
+# EventKit + Contacts).  Isolated in its own crate so the Objective-C
+# bindings never leak into the portable half of the workspace.
+unkai-system = { path = "crates/unkai-system" }
+unkai-commands = { path = "crates/unkai-commands" }

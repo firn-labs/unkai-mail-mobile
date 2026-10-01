@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Apple privacy manifest. Required for App Store submission since May
+  2024: an app that calls a "required reason" API without declaring it
+  here is rejected at upload (ITMS-91053).
+
+  This is the one hand-maintained file inside gen/apple/, and on
+  purpose: the manifest must sit at the root of the .app bundle, the
+  generated project picks up every file in this directory as a bundle
+  resource, and Tauri has no config key that would place it there.
+  `tauri ios init` does not remove it. See CLAUDE.md → iOS project
+  specifics.
+
+  Every entry below is backed by a symbol found in a RELEASE build
+  (debug builds keep unused objc2 bindings alive and over-report):
+
+    nm -u "…/Unkai Mail.app/Unkai Mail"
+    nm -A target/aarch64-apple-ios-sim/release/libunkai_mobile_lib.a
+
+  Re-run that check after adding a dependency or a native bridge, and
+  update this file in the same change. Declaring a category that is not
+  used is inaccurate; missing one that is used fails the upload.
+-->
+<plist version="1.0">
+<dict>
+	<!-- No tracking, no tracking domains: the app contains no analytics,
+	     advertising or attribution SDK and talks to no server of the
+	     developers'. -->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+
+	<!-- Nothing is "collected" in Apple's sense (sent off the device to
+	     the developer or a partner). Mail, contacts and calendars go
+	     only to servers the user configures. This must match the App
+	     Privacy answers in App Store Connect ("Data Not Collected"). -->
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<!-- stat / fstat / lstat: Rust std's file metadata and SQLCipher,
+		     on files inside the app container (C617.1).
+		     NSFileModificationDate: tauri-plugin-dialog's
+		     FilePickerController, on files the user picked in the
+		     document picker (3B52.1). -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>C617.1</string>
+				<string>3B52.1</string>
+			</array>
+		</dict>
+		<!-- statfs / fstatfs: SQLCipher's SQLite (sqlite3.o) and rustix,
+		     inspecting the volume the database is written to (E174.1). -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryDiskSpace</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>E174.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

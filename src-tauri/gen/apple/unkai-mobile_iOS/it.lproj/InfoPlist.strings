@@ -1,0 +1,17 @@
+/*
+  Permission prompt texts (it). The English source of every key is in
+  `src-tauri/Info.ios.plist`; change all languages together. Hand-maintained
+  inside gen/apple/ for the same reason as de.lproj — see CLAUDE.md →
+  iOS project specifics.
+*/
+
+"CFBundleDisplayName" = "Unkai Mail";
+
+"NSPhotoLibraryUsageDescription" = "Allegare foto e video ai messaggi che invii.";
+"NSCameraUsageDescription" = "Scattare una foto da allegare a un messaggio.";
+
+"NSCalendarsFullAccessUsageDescription" = "Mostrare gli eventi dei calendari del dispositivo insieme agli altri calendari e salvarvi gli eventi che crei.";
+"NSRemindersFullAccessUsageDescription" = "Mostrare i tuoi promemoria insieme alle altre attività e salvarvi quelli che crei.";
+"NSContactsUsageDescription" = "Mostrare le persone sul dispositivo insieme agli altri contatti, completare gli indirizzi mentre scrivi e salvarvi i contatti che crei.";
+"NSCalendarsUsageDescription" = "Mostrare gli eventi dei calendari del dispositivo insieme agli altri calendari e salvarvi gli eventi che crei.";
+"NSRemindersUsageDescription" = "Mostrare i tuoi promemoria insieme alle altre attività e salvarvi quelli che crei.";

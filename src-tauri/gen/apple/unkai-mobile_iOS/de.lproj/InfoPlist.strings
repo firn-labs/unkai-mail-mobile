@@ -1,0 +1,22 @@
+/*
+  German texts for the iOS permission prompts.
+
+  The English source of every key is in `src-tauri/Info.ios.plist`;
+  change both together. iOS shows these instead of the English ones on a
+  phone set to German (or with German picked for this app in Settings).
+
+  Hand-maintained inside gen/apple/ because a localized .strings file
+  has to be a bundle resource and Tauri has no config for one — see
+  CLAUDE.md → iOS project specifics.
+*/
+
+"CFBundleDisplayName" = "Unkai Mail";
+
+"NSPhotoLibraryUsageDescription" = "Fotos und Videos an Nachrichten anhängen, die du sendest.";
+"NSCameraUsageDescription" = "Ein Foto aufnehmen, um es an eine Nachricht anzuhängen.";
+
+"NSCalendarsFullAccessUsageDescription" = "Termine aus den Kalendern deines Geräts neben deinen anderen Kalendern anzeigen und die Termine, die du erstellst, dort speichern.";
+"NSRemindersFullAccessUsageDescription" = "Deine Erinnerungen neben deinen anderen Aufgaben anzeigen und die Erinnerungen, die du erstellst, dort speichern.";
+"NSContactsUsageDescription" = "Die Kontakte auf deinem Gerät neben deinen anderen Kontakten anzeigen, Adressen beim Schreiben vervollständigen und die Kontakte, die du erstellst, dort speichern.";
+"NSCalendarsUsageDescription" = "Termine aus den Kalendern deines Geräts neben deinen anderen Kalendern anzeigen und die Termine, die du erstellst, dort speichern.";
+"NSRemindersUsageDescription" = "Deine Erinnerungen neben deinen anderen Aufgaben anzeigen und die Erinnerungen, die du erstellst, dort speichern.";

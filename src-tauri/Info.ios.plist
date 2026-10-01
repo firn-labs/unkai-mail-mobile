@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  iOS-specific Info.plist entries, merged into the generated app
+  plist at build time. Kept here (rather than edited into
+  `gen/apple/`) so a `tauri ios init` regeneration can't lose them.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>Unkai Mail</string>
+
+	<!--
+	  The languages the app speaks — the same ten as `ui/messages/`
+	  and `ui/project.inlang/settings.json`. Without this list iOS treats
+	  the bundle as English-only: the webview is told the user prefers
+	  English (so the UI never switches), the system permission prompts
+	  stay English, the App Store lists one language, and Settings →
+	  Unkai Mail offers no per-app "Preferred Language". Chinese is
+	  `zh-Hans` here (Simplified); the UI calls the same locale `zh`.
+
+	  The translated permission texts live in
+	  `gen/apple/unkai-mobile_iOS/<lang>.lproj/InfoPlist.strings` — the
+	  English ones below are the source; keep every language in step.
+	-->
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>de</string>
+		<string>es</string>
+		<string>fr</string>
+		<string>it</string>
+		<string>pt</string>
+		<string>ja</string>
+		<string>zh-Hans</string>
+		<string>ko</string>
+		<string>ru</string>
+	</array>
+
+	<!--
+	  Saved attachments land in the app's Documents directory. These
+	  two keys are what make that directory visible under
+	  "On My iPhone → Unkai Mail" in the Files app — without them the
+	  Save action would write files the user can never reach.
+	-->
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+
+	<!--
+	  Attachment picking uses a plain `<input type="file">`, which in
+	  a WKWebView offers the Photo Library and the camera alongside
+	  Files. iOS refuses to show those options at all unless the
+	  purpose strings are declared.
+	-->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Attach photos and videos to the messages you send.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Take a photo to attach to a message.</string>
+
+	<!--
+	  The System source (Settings -> Calendar & contact sources) reads
+	  and writes the device's own Calendar, Reminders and Contacts
+	  databases through EventKit and the Contacts framework.
+
+	  All five keys have to be here even though we only ever ask for
+	  full access: iOS terminates the process on the spot if a
+	  permission is requested without its purpose string, and which
+	  string it looks for depends on the OS version. The two legacy
+	  keys cover iOS 16 and earlier, where full/write-only access
+	  hadn't been split yet.
+	-->
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Show the events from your device calendars alongside your other calendars, and save the events you create back to them.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Show your reminders alongside your other tasks, and save the ones you create back to them.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Show the people on your device alongside your other contacts, complete addresses as you write a message, and save the contacts you create back to them.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Show the events from your device calendars alongside your other calendars, and save the events you create back to them.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>Show your reminders alongside your other tasks, and save the ones you create back to them.</string>
+
+	<!--
+	  Portrait-first: every screen is a single column, and the mail
+	  list, reader and composer are all designed for one-handed use.
+	  Landscape stays available on iPad, where the extra width is
+	  usable.
+	-->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+</dict>
+</plist>

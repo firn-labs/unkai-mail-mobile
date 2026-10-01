@@ -1,0 +1,65 @@
+name: Smoke
+
+# Cheap, fast checks that run on every push and PR. The goal is to
+# catch the "I broke the build" class of regression in a few minutes
+# without waiting on the heavy security suite (`ci.yml`).
+#
+# The Rust job runs on macOS and checks against the **iOS simulator
+# target**, not the host: the point of this repo is that the workspace
+# compiles for a phone, and a Linux `cargo check` would happily pass
+# on code that can't. The iOS toolchain also builds OpenSSL and
+# SQLCipher from source, so the cargo cache carries real weight here.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  rust-smoke:
+    name: Rust smoke (fmt + iOS check)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: aarch64-apple-ios-sim
+      - uses: actions/cache@v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          # `github.repository` scopes caches per-repo so a rename
+          # doesn't restore stale `target/` artifacts whose absolute
+          # build paths point at the old checkout dir.
+          key: ${{ runner.os }}-cargo-smoke-${{ github.repository }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-smoke-${{ github.repository }}-
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+      - name: cargo check (iOS simulator)
+        run: cargo check --workspace --target aarch64-apple-ios-sim
+
+  frontend-smoke:
+    name: Frontend smoke (typecheck + build + tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+      - run: npm test

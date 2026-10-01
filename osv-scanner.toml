@@ -1,0 +1,86 @@
+# Configuration for Google's OSV-Scanner.
+#
+# Mirrors the ignore list in `audit.toml` (cargo-audit) and the
+# `[advisories.ignore]` block in `deny.toml` (cargo-deny).  The
+# three sources need to stay in sync — every advisory we accept is
+# upstream-blocked: a transitive dep we can't bump until its own
+# maintainers cut a release.
+
+# ── GTK3 chain pulled in transitively by `font-kit` ─────────────
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0413"
+reason = "transitive via font-kit / GTK3 — no upstream fix yet"
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0416"
+reason = "transitive via font-kit / GTK3 — no upstream fix yet"
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0057"
+reason = "transitive via font-kit / GTK3 — no upstream fix yet"
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0412"
+reason = "transitive via font-kit / GTK3 — no upstream fix yet"
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0418"
+reason = "transitive via font-kit / GTK3 — no upstream fix yet"
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0411"
+reason = "transitive via font-kit / GTK3 — no upstream fix yet"
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0417"
+reason = "transitive via font-kit / GTK3 — no upstream fix yet"
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0414"
+reason = "transitive via font-kit / GTK3 — no upstream fix yet"
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0415"
+reason = "transitive via font-kit / GTK3 — no upstream fix yet"
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0420"
+reason = "transitive via font-kit / GTK3 — no upstream fix yet"
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0419"
+reason = "transitive via font-kit / GTK3 — no upstream fix yet"
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0429"
+reason = "glib unsoundness — transitive via font-kit / GTK3"
+
+# ── unic-* chain (transitive via rrule / chrono-tz) ──────────────
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0081"
+reason = "unic-* family is unmaintained — transitive via rrule"
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0075"
+reason = "unic-* family is unmaintained — transitive via rrule"
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0080"
+reason = "unic-* family is unmaintained — transitive via rrule"
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0100"
+reason = "unic-* family is unmaintained — transitive via rrule"
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0098"
+reason = "unic-* family is unmaintained — transitive via rrule"
+
+# ── Other transitive unmaintained / unsound deps ─────────────────
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0052"
+reason = "async-std unmaintained — transitive build dep"
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0370"
+reason = "proc-macro-error unmaintained — transitive build-time"
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0097"
+reason = "rand 0.7 / 0.8 unsoundness — transitive only, not exposed in our API"
+
+# ── quick-xml < 0.41 DoS advisories (transitive copies) ──────────
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0194"
+reason = "quick-xml 0.37/0.38 transitive via tauri-winrt-notification and plist parse locally generated XML only; workspace dep is on patched 0.41"
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0195"
+reason = "quick-xml 0.37/0.38 transitive via tauri-winrt-notification and plist parse locally generated XML only; workspace dep is on patched 0.41"
+
+# ── rsa Marvin timing side-channel (transitive via pgp) ──────────
+[[IgnoredVulns]]
+id = "RUSTSEC-2023-0071"
+reason = "rsa Marvin attack (CVE-2023-49092) — no patched release exists upstream; pulled in via pgp → unkai-crypto. The attack needs an adaptive decryption-timing oracle, which our offline local PGP decryption does not expose to a remote attacker."

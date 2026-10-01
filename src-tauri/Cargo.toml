@@ -1,0 +1,70 @@
+[package]
+name = "unkai-mobile"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+# On iOS the app is a static library the generated Xcode project
+# links into an UIKit host, so the crate has to build as a library
+# first — `staticlib` for the device/simulator link, `cdylib` for
+# Android's JNI host, `rlib` so `src/main.rs` (the desktop-window
+# dev entry point) can call into it.
+[lib]
+name = "unkai_mobile_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+unkai-core.workspace = true
+unkai-imap.workspace = true
+unkai-smtp.workspace = true
+unkai-jmap.workspace = true
+unkai-caldav.workspace = true
+unkai-carddav.workspace = true
+unkai-nextcloud.workspace = true
+unkai-store.workspace = true
+unkai-discovery.workspace = true
+# The transport-agnostic application layer — every command body and
+# background loop.  `lib.rs` holds only thin shims over it.
+unkai-commands.workspace = true
+# The MCP server the desktop build hosts for AI integrations.  The
+# mobile shell exposes no MCP commands and pins `mcp_enabled` off
+# (see `state::load_mobile_settings`); the dependency stays because
+# `cmds::settings::update_app_settings` takes a parked server
+# handle to reconcile against.
+unkai-mcp.workspace = true
+# OpenPGP + S/MIME primitives for the receive (decrypt + verify)
+# and send (encrypt + sign) bridges.  Lives at the IPC boundary
+# because the protocol crates stay crypto-agnostic by design.
+unkai-crypto.workspace = true
+tokio.workspace = true
+futures.workspace = true
+base64.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+# Scrubs cleartext passphrase / private-key buffers from memory on
+# drop at the IPC boundary.
+zeroize.workspace = true
+sha2 = { workspace = true }
+hex = { workspace = true }
+tauri = { version = "2", features = [] }
+# Local notifications — new mail, event and message reminders.
+# Backed by UNUserNotificationCenter on iOS; the frontend owns the
+# copy and asks for the permission.
+tauri-plugin-notification = "2"
+# File *picking* (PGP / S/MIME key import, `.ics` / `.vcf`
+# import).  UIDocumentPickerViewController on iOS.  There is no
+# save-dialog half on mobile: saving goes to the app's Documents
+# directory via `save_attachment_to_documents`.
+tauri-plugin-dialog = "2"
+# Hands URLs to the OS.  Replaces the desktop shell's `open`
+# crate, which has no iOS backend — a sandboxed app has to ask
+# UIKit to open a URL on its behalf.
+tauri-plugin-opener = "2"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }

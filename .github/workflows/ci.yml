@@ -1,0 +1,143 @@
+name: Quality gate
+
+# Heavy CI suite — clippy, tests, audit, deny, frontend audits.
+# Runs only when something *needs* to be verified end-to-end:
+#   * `workflow_call` — invoked by `weekly-security.yml` on the cron
+#     tick, and (once this app has a release pipeline) by whatever
+#     gates a build.
+#   * `workflow_dispatch` — for ad-hoc manual runs from the Actions
+#     UI when you want to gate-check a branch.
+#
+# It is deliberately NOT triggered on every push or PR — that's what
+# `smoke.yml` is for. This keeps the daily dev loop fast while the
+# strict checks kick in on a schedule.
+#
+# The Rust jobs run on macOS against the iOS simulator target: this
+# app ships to a phone, so "does it compile" has to mean "does it
+# compile for iOS". The tests themselves are host-native (the
+# protocol and store logic is platform-agnostic).
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ── Rust checks ──────────────────────────────────────────────
+  rust-fmt:
+    name: Rust formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+
+  rust-clippy:
+    name: Rust linting (clippy, iOS target)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+          targets: aarch64-apple-ios-sim
+      - uses: actions/cache@v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          # See smoke.yml — `github.repository` scopes caches
+          # per-repo so a rename doesn't restore stale `target/`
+          # artifacts with absolute paths pointing at the old name.
+          key: ${{ runner.os }}-cargo-clippy-${{ github.repository }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-clippy-${{ github.repository }}-
+      - run: cargo clippy --workspace --target aarch64-apple-ios-sim -- -D warnings
+
+  rust-test:
+    name: Rust tests
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          # See smoke.yml — repo-scoped cache key avoids stale
+          # post-rename build artifacts.
+          key: ${{ runner.os }}-cargo-test-${{ github.repository }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-test-${{ github.repository }}-
+      - run: cargo test --workspace
+
+  rust-audit:
+    name: Security audit (dependencies)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # `rustsec/audit-check` does NOT read `audit.toml` (or any
+          # cargo-audit config file) — its only suppression mechanism
+          # is this `ignore` input, so the accepted-advisory list has
+          # to be mirrored here. Keep it in sync with `audit.toml`,
+          # `deny.toml`, and `osv-scanner.toml`; every entry is a
+          # transitive, upstream-blocked advisory we can't yet drop.
+          # See `audit.toml` for the per-ID rationale. Comma-separated,
+          # no spaces — the action splits this string on `,` verbatim.
+          ignore: RUSTSEC-2024-0413,RUSTSEC-2024-0416,RUSTSEC-2025-0057,RUSTSEC-2024-0412,RUSTSEC-2024-0418,RUSTSEC-2024-0411,RUSTSEC-2024-0417,RUSTSEC-2024-0414,RUSTSEC-2024-0415,RUSTSEC-2024-0420,RUSTSEC-2024-0419,RUSTSEC-2024-0429,RUSTSEC-2025-0081,RUSTSEC-2025-0075,RUSTSEC-2025-0080,RUSTSEC-2025-0100,RUSTSEC-2025-0098,RUSTSEC-2025-0052,RUSTSEC-2024-0370,RUSTSEC-2026-0097,RUSTSEC-2026-0194,RUSTSEC-2026-0195,RUSTSEC-2023-0071
+
+  # `cargo-deny` complements `cargo audit`: in addition to advisory
+  # scanning it enforces our licence allow-list and — most
+  # importantly for supply-chain hygiene — bans crates from
+  # unknown registries or git URLs.  See `deny.toml` at the
+  # workspace root for the policy.
+  rust-deny:
+    name: Supply-chain policy (cargo-deny)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: EmbarkStudios/cargo-deny-action@v2.1.1
+        with:
+          command: check bans licenses sources advisories
+
+  # ── Frontend checks ─────────────────────────────────────────
+  frontend-lint:
+    name: Frontend lint & type check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm ci
+      # Belt-and-suspenders supply-chain check on the lockfile:
+      # `lockfile-lint` rejects any dep whose resolved URL points
+      # somewhere other than the official npm registry, catching a
+      # whole class of attacks where a poisoned tarball is wedged
+      # into `package-lock.json` directly.
+      - name: Validate npm lockfile sources
+        run: npx --yes lockfile-lint --path package-lock.json
+          --validate-https
+          --allowed-hosts npm
+      # `npm audit` is the npm-side counterpart of `cargo audit`.
+      # We only fail on `high` or `critical` so noisy `low`/`moderate`
+      # advisories on dev-only deps don't block merges.
+      - name: npm audit (high+ severity)
+        run: npm audit --audit-level=high
+      - run: npm run check
+      - run: npm run build
+      - run: npm test

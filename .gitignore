@@ -1,0 +1,44 @@
+# Rust
+/target/
+**/*.rs.bk
+# Note: Cargo.lock is committed because this is an application, not a library.
+# See https://doc.rust-lang.org/cargo/faq.html#why-have-cargolock-in-version-control
+
+# Node
+node_modules/
+ui/node_modules/
+ui/dist/
+
+# Generated frontend i18n module (rebuilt by the Vite plugin)
+ui/src/paraglide/
+
+# Xcode / iOS build output. `src-tauri/gen/apple/` itself IS committed
+# (it carries the project definition); these are its build artefacts,
+# and `gen/apple/.gitignore` covers them from inside too.
+src-tauri/gen/apple/build/
+src-tauri/gen/apple/Externals/
+src-tauri/gen/apple/**/xcuserdata/
+DerivedData/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# The dev fixture's self-signed certificate (regenerated on first run)
+devtools/.certs/
+
+# Environment / secrets
+.env
+.env.local
+*.pem
+*.key
+
+# Local design references / scratch screenshots
+*-Mockup.png
+*-mockup.png

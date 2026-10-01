@@ -1,0 +1,106 @@
+[package]
+name = "unkai-system"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+# The bridge to the *device's own* groupware databases: the iOS /
+# macOS system calendar (EventKit), the system address book
+# (Contacts) and the system reminder lists (EventKit's VTODO half).
+#
+# Why this exists as its own crate:
+#
+#   * It is the only place in the workspace that talks Objective-C.
+#     Keeping the `objc2-*` dependencies behind one door means the
+#     rest of the tree — including `unkai-commands`, which calls
+#     into here — stays plain portable Rust and keeps compiling for
+#     any target.
+#   * Everything it exposes is plain data (`String`, `DateTime<Utc>`,
+#     vCard text). No `Retained<…>` handle ever escapes a function,
+#     so callers never have to think about Objective-C lifetimes or
+#     thread affinity.
+#   * On a non-Apple target every entry point compiles to the same
+#     signature and answers `SystemError::Unsupported`. That is what
+#     lets the Android port build before it has its own bridge.
+[dependencies]
+chrono.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+# EventKit (calendars + reminders) and Contacts, via the `objc2`
+# family's generated bindings.  Both are already in the dependency
+# graph transitively (tao/wry pull the same `objc2` core), so this
+# adds bindings, not a second Objective-C runtime.
+#
+# `default-features = false` on EventKit is load-bearing: its
+# default set pulls in AppKit, MapKit and CoreLocation for the
+# handful of APIs we don't touch (geofenced alarms,
+# virtual-conference providers) — and AppKit does not exist on iOS
+# at all. CoreGraphics is the one exception we opt back in to:
+# `EKCalendar.CGColor` is the calendar's colour, and matching what
+# the Calendar app shows is worth one small C API.
+[target.'cfg(target_vendor = "apple")'.dependencies]
+objc2 = "0.6"
+block2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = [
+    "std",
+    "NSArray",
+    "NSCalendar",
+    "NSData",
+    "NSDate",
+    "NSEnumerator",
+    "NSError",
+    "NSObject",
+    "NSPredicate",
+    "NSString",
+    "NSTimeZone",
+    "NSURL",
+    "NSValue",
+    "block2",
+] }
+objc2-event-kit = { version = "0.3", default-features = false, features = [
+    "std",
+    "block2",
+    "bitflags",
+    "EKAlarm",
+    "EKCalendar",
+    "EKCalendarItem",
+    "EKError",
+    "EKEvent",
+    "EKEventStore",
+    "EKObject",
+    "EKParticipant",
+    "EKReminder",
+    "EKSource",
+    "EKTypes",
+    "objc2-core-graphics",
+] }
+# Only for reading `EKCalendar.CGColor`'s components back out — the
+# `CGColor` feature alone, no drawing surface of any kind.
+objc2-core-graphics = { version = "0.3", default-features = false, features = [
+    "std",
+    "CGColor",
+    "objc2",
+] }
+# For `CGFloat` alone — the width CoreGraphics hands its colour
+# components back in.
+objc2-core-foundation = { version = "0.3", default-features = false, features = [
+    "std",
+    "CFCGTypes",
+] }
+objc2-contacts = { version = "0.3", default-features = false, features = [
+    "std",
+    "block2",
+    "CNContact",
+    "CNContactFetchRequest",
+    "CNFetchRequest",
+    "CNContactStore",
+    "CNContactVCardSerialization",
+    "CNContact_Predicates",
+    "CNError",
+    "CNLabeledValue",
+    "CNMutableContact",
+    "CNPhoneNumber",
+    "CNPostalAddress",
+    "CNSaveRequest",
+] }

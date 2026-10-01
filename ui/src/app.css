@@ -1,0 +1,1561 @@
+@import 'tailwindcss';
+@import '@skeletonlabs/skeleton';
+
+/* Full Skeleton theme set (#132 tier 1), plus the house theme in
+   `themes/`.  Adding a new theme takes an import line here, an entry in
+   `lib/theme.ts`'s `STOCK_THEMES` (whose comment lists the rest), and
+   regenerating `accessible-colors.css` — the contrast test fails until
+   you do. */
+@import '@skeletonlabs/skeleton/themes/catppuccin';
+@import '@skeletonlabs/skeleton/themes/cerberus';
+@import '@skeletonlabs/skeleton/themes/concord';
+@import '@skeletonlabs/skeleton/themes/crimson';
+@import '@skeletonlabs/skeleton/themes/fennec';
+@import '@skeletonlabs/skeleton/themes/hamlindigo';
+@import '@skeletonlabs/skeleton/themes/legacy';
+@import '@skeletonlabs/skeleton/themes/mint';
+@import '@skeletonlabs/skeleton/themes/modern';
+@import '@skeletonlabs/skeleton/themes/mona';
+@import '@skeletonlabs/skeleton/themes/nosh';
+@import '@skeletonlabs/skeleton/themes/nouveau';
+@import '@skeletonlabs/skeleton/themes/pine';
+@import '@skeletonlabs/skeleton/themes/reign';
+@import '@skeletonlabs/skeleton/themes/rocket';
+@import '@skeletonlabs/skeleton/themes/rose';
+@import '@skeletonlabs/skeleton/themes/sahara';
+@import '@skeletonlabs/skeleton/themes/seafoam';
+@import '@skeletonlabs/skeleton/themes/terminus';
+@import '@skeletonlabs/skeleton/themes/vintage';
+@import '@skeletonlabs/skeleton/themes/vox';
+@import '@skeletonlabs/skeleton/themes/wintry';
+
+/* The house theme and the default for new installs — see its header. */
+@import './themes/unkai.css';
+
+/* Contrast-guaranteed text and control colours for each theme above.
+   Generated — see `lib/accessibleColors.ts` for why and how. A theme
+   imported here without regenerating fails `accessibleColors.test.ts`. */
+@import './accessible-colors.css';
+
+/* Tailwind v4's `dark:` variant defaults to `prefers-color-scheme`.
+   We override it to look at `data-mode="dark"` on the `<html>` element
+   so the JS layer (`lib/theme.ts`) can choose between following the
+   OS preference (System mode) or pinning Light / Dark explicitly. In
+   System mode the JS still listens to `prefers-color-scheme` and
+   flips `data-mode` itself, so the CSS only ever has to consult one
+   signal. */
+@custom-variant dark (&:where([data-mode='dark'], [data-mode='dark'] *));
+
+html,
+body {
+  @apply h-full overflow-hidden;
+  margin: 0;
+  /* The page itself never scrolls: individual panes do. Without
+     this, iOS rubber-bands the whole shell — nav bar and tab bar
+     included — away from the screen edges. */
+  overscroll-behavior: none;
+}
+
+body {
+  /* The recessed ground every card is lifted off. See `--ui-canvas`. */
+  background: var(--ui-canvas);
+  color: var(--ui-ink);
+  /* Feels like an app rather than a web page: no tap flash, no
+     text selection on chrome, no double-tap zoom on controls. */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+  font-size: var(--t-body);
+}
+
+/* The shell ends where the keyboard begins (`lib/keyboardViewport.ts`):
+   without that, iOS scrolled the whole page to reach a focused field and
+   the navigation bar slid under the status bar. */
+#app {
+  height: calc(100% - var(--keyboard-inset, 0px));
+}
+
+/* While typing the tab bar steps aside, as in native apps — floating
+   above the keyboard it would take a fifth of what is left. */
+html[data-keyboard] .tab-bar {
+  display: none;
+}
+
+/* Text the user reads or edits opts selection back in — a message
+   body they can't copy from is a mail client they can't use. */
+input,
+textarea,
+[contenteditable],
+.selectable,
+.email-html-body {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* iOS zooms the viewport when a focused field's text is under
+   16px. Every text control therefore starts at 16px and only grows
+   from there — see `--t-input`. */
+input,
+textarea,
+select {
+  font-size: var(--t-input);
+}
+
+/* ── Keyboard, Switch Control and Full Keyboard Access ───────────────
+   Touch never shows this ring (`:focus-visible` only matches focus the
+   user moved by keyboard or an assistive switch), but anyone driving
+   the app that way on an iPad keyboard needs to see where they are
+   (WCAG 2.4.7). The accent ink is solved to ≥4.5:1 on every surface,
+   so the ring clears the 3:1 a focus indicator needs in every theme. */
+:focus-visible {
+  outline: 2px solid var(--ui-accent-ink);
+  outline-offset: 2px;
+}
+
+/* ── Glass aesthetic (#451) ──────────────────────────────────────────── */
+/* Frosted-glass chrome derived entirely from the active Skeleton theme's
+   surface scale, so every stock theme and tier-2 user import keeps its
+   own tint. Two utilities only:
+     .glass-panel — persistent layout chrome (nav bar, tab bar, bottom bars)
+     .glass-float — floating layers (modals, popovers, dropdowns)
+   backdrop-filter stays exclusive to these two classes; never apply it
+   per list row (MailList renders thousands) or stack two glass layers. */
+:root {
+  --glass-blur: 18px;
+  --glass-opacity-light: 65%;
+  --glass-opacity-dark: 60%;
+  --glass-border: color-mix(in oklab, var(--color-surface-500) 20%, transparent);
+  --glass-shadow: 0 8px 32px -12px color-mix(in oklab, var(--color-surface-950) 45%, transparent);
+}
+
+/*
+   `.glass-panel` is opaque on mobile, and that is not a downgrade.
+
+   On the desktop the chrome floats over content — a blurred sidebar
+   with a message list sliding underneath is the whole effect. Here it
+   never does: every `.glass-panel` in this app (NavBar, TabBar, the
+   reader's action bar, the compose toolbar, the multi-select bar) is a
+   `flex-shrink: 0` sibling of the scroller, not a layer above it. The
+   only thing behind them is the screen's flat background colour, so
+   the blur resolves to exactly the colour we could have painted
+   directly.
+
+   What it costs to not paint it directly: WebKit gives any
+   backdrop-filter element its own compositing layer and re-samples the
+   backdrop behind it as the page changes — twice per frame here, top
+   and bottom, full screen width, for the entire duration of every
+   scroll. That was a measurable slice of the frame budget in exchange
+   for a visual difference of zero.
+
+   The blur stays available for anything that genuinely does overlay
+   content — see `.glass-float`, which modals still use.
+*/
+.glass-panel {
+  background: var(--color-surface-100);
+  border-color: var(--glass-border);
+}
+
+[data-mode='dark'] .glass-panel {
+  background: var(--color-surface-800);
+}
+
+.glass-float {
+  background: color-mix(in oklab, var(--color-surface-50) 80%, transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+[data-mode='dark'] .glass-float {
+  background: color-mix(in oklab, var(--color-surface-900) 80%, transparent);
+}
+
+/* Reduce Transparency (iOS Accessibility → Display & Text Size) asks
+   for exactly this: no see-through layers under text. A webview without
+   backdrop-filter needs the same, or `.glass-float` looks broken rather
+   than deliberate. `.glass-panel` no longer appears here: it is opaque
+   for every engine now (see above). */
+@media (prefers-reduced-transparency: reduce) {
+  .glass-float {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: var(--color-surface-100);
+  }
+  [data-mode='dark'] .glass-float {
+    background: var(--color-surface-800);
+  }
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .glass-float {
+    background: var(--color-surface-100);
+  }
+  [data-mode='dark'] .glass-float {
+    background: var(--color-surface-800);
+  }
+}
+
+/* ── Text contrast + writing surfaces on glass (#453) ────────────────── */
+/* Companion tokens to the glass set above. Glass stays on window chrome;
+   anything that carries text sits on these opaque-leaning treatments so
+   readability never depends on what happens to be blurred underneath.
+     --text-on-glass        primary text — WCAG AA (4.5:1) on chrome
+     --text-on-glass-muted  labels/placeholders — target ~AA, never <3:1
+   The muted mix is anchored on the strong end of the surface scale
+   (950 in light, 50 in dark) and only pulled *toward* surface-400 —
+   starting from the weak end is what produced the unreadable grey
+   this block fixes. */
+/* Border alphas look strong on paper because they're calibrated against
+   the WORST composited background across the stock themes (vox's
+   compressed light scale), not the friendliest: computed contrast for
+   a 1px input border vs the modal chrome is >=3:1 (non-text AA) in
+   cerberus / wintry / vox, light + dark. If a future theme still rips
+   through the floor, sharpen these mixes globally — no per-theme
+   exceptions. */
+/* The two text tokens are aliases of the contrast-solved inks now. The
+   mixes they used to be measured 3.0-5.4:1 across the stock themes —
+   below AA in most of them — and 35 places in the screens read them. */
+:root {
+  --text-on-glass: var(--ui-ink);
+  --text-on-glass-muted: var(--ui-ink-muted);
+  --glass-input-fill: color-mix(in oklab, var(--color-surface-950) 6%, transparent);
+  --glass-input-border: var(--ui-control);
+}
+
+[data-mode='dark'] {
+  --glass-input-fill: color-mix(in oklab, var(--color-surface-50) 8%, transparent);
+}
+
+.text-on-glass {
+  color: var(--text-on-glass);
+}
+
+.text-on-glass-muted {
+  color: var(--text-on-glass-muted);
+}
+
+/* Central input treatment: every Skeleton `.input` / `.select` gets a
+   slightly lighter-than-chrome opaque-leaning fill, a visible 1px
+   border, and an unmistakable primary focus state. background-color
+   (not the shorthand) so `.select` keeps its caret background-image. */
+.input,
+.select {
+  background-color: var(--glass-input-fill);
+  border: 1px solid var(--glass-input-border);
+  color: var(--text-on-glass);
+}
+
+.input::placeholder,
+.select::placeholder {
+  color: var(--text-on-glass-muted);
+}
+
+.input:focus,
+.select:focus {
+  border-color: var(--ui-accent-ink);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary-500) 25%, transparent);
+}
+
+/* Opaque reading/writing canvas one step above the chrome — no blur,
+   no transparency: this is where eyes rest. Dark mode gets a
+   surface-800/900 mix instead of near-black so the canvas reads as a
+   surface, not a hole. */
+.glass-writing-surface {
+  background: var(--color-surface-50);
+}
+
+[data-mode='dark'] .glass-writing-surface {
+  background: color-mix(in oklab, var(--color-surface-800) 55%, var(--color-surface-900));
+}
+
+/* ── Email body renderer ─────────────────────────────────────────────── */
+/* Scoped resets for HTML email content injected via {@html}. We can't
+   scope <style> tags from the email (they're stripped by DOMPurify), but
+   inline styles from the email still apply. These rules establish a sane
+   baseline so email tables, images, and links look reasonable without
+   touching the rest of the app. */
+.email-html-body {
+  /* Prevent a single wide image or table from stretching the pane. */
+  max-width: 100%;
+  /* Only break at long-word boundaries (URLs, hashes) — `anywhere`
+     breaks between every character and stacks short headers like
+     "Status" vertically inside narrow table cells. */
+  overflow-wrap: break-word;
+}
+
+/* "Always white" mode (default). HTML emails are designed against a white
+   background — senders set dark text colours via inline styles assuming a
+   light page. Forcing a white canvas here keeps GitHub pipeline status
+   banners, newsletter headlines, etc. legible in dark mode. Same approach
+   Gmail / Outlook / Thunderbird / Apple Mail take. The margin + radius
+   carve the white block into a card so it doesn't bleed edge-to-edge into
+   the dark app chrome. */
+.email-html-body--white {
+  background: #ffffff;
+  color: #1a1a1a;
+  /* Light mode: the reader's page is already cloud-white, so the forced
+     white needs no card around it — the letter is simply on the page. */
+  padding: var(--s-1) var(--gutter) var(--s-5);
+}
+
+/* Dark mode: now the white is a sheet of paper laid on the night page,
+   so it gets the paper's edges. */
+[data-mode='dark'] .email-html-body--white {
+  margin: 0 var(--gutter) var(--s-4);
+  padding: var(--s-5) var(--s-4);
+  border-radius: var(--r-lg);
+}
+
+/* "Use mail's theme" mode. No forced background — inline styles from the
+   email decide. Padding still applied so the body doesn't collide with
+   the surrounding chrome. */
+.email-html-body--native {
+  padding-inline: var(--gutter);
+}
+
+.email-html-body table {
+  border-collapse: collapse;
+  max-width: 100%;
+}
+
+.email-html-body img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Link colour for links that bring none of their own. On the theme
+   canvas that is the solved accent ink; on the forced-white card it is
+   a fixed blue-700 (6.7:1 on white) — the blue-500 this used to be
+   measured 3.7:1, under the 4.5:1 AA floor. */
+.email-html-body a {
+  color: var(--ui-accent-ink);
+  text-decoration: underline;
+}
+
+.email-html-body--white a {
+  color: #1d4ed8;
+}
+
+.email-html-body a:hover {
+  opacity: 0.8;
+}
+
+/* ── Collapsible quoted / forwarded blocks (#330) ──────────────────────
+   Display-time disclosure card MailView wraps around every standard
+   "this is quoted / forwarded" marker (our own data-unkai-block, the
+   cite-blockquote convention, gmail_quote, moz-cite-prefix, the
+   `---------- Forwarded message ----------` delimiter, etc.).  The raw
+   email body is untouched on the wire — the card lives entirely in
+   the rendered DOM. */
+.email-html-body details.quoted-collapse {
+  margin: 12px 0;
+  border: 1px solid #e2e8f0;       /* slate-200 */
+  border-radius: 8px;
+  background: #f8fafc;              /* slate-50 */
+  color: #1e293b;                   /* slate-800 — readable dark text on light bg */
+  overflow: hidden;
+}
+
+[data-mode='dark'] .email-html-body details.quoted-collapse {
+  border-color: #475569;            /* slate-600 */
+  background: #1e293b;              /* slate-800 */
+  color: #f1f5f9;                   /* slate-100 — readable light text on dark bg */
+}
+
+/* "Always white" mode forces the email pane to a white card; the
+   chrome below must also stay light (regardless of app theme) so the
+   text inside the card stays readable against the slate-50 background.
+   Every white-mode rule here carries `.email-html-body` twice over
+   (`.email-html-body.email-html-body--white`) so its specificity
+   *equals* the `[data-mode='dark'] .email-html-body …` rule it answers,
+   and being declared later wins. With one class less it lost, and the
+   fold drew a dark slate box inside the white card in dark mode. */
+.email-html-body.email-html-body--white details.quoted-collapse {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #1e293b;
+}
+
+.email-html-body details.quoted-collapse > summary.quoted-collapse__summary {
+  display: block;
+  padding: 8px 14px;
+  cursor: pointer;
+  /* A token, not 12px: the fold follows Dynamic Type like the text it
+     sits in. */
+  font-size: var(--t-footnote);
+  font-weight: 500;
+  /* slate-600, not 500: 500 was 4.55:1 at rest and 4.34:1 on the
+     pressed tint — under AA the moment the user touched it. */
+  color: #475569;
+  user-select: none;
+  list-style: none; /* hide default ▶ marker; we draw our own ▾ */
+}
+
+[data-mode='dark'] .email-html-body details.quoted-collapse > summary.quoted-collapse__summary {
+  color: #cbd5e1;                   /* slate-300 — 6.97:1 even on the pressed slate-700 */
+}
+
+.email-html-body.email-html-body--white details.quoted-collapse > summary.quoted-collapse__summary {
+  color: #475569;
+}
+
+.email-html-body details.quoted-collapse > summary.quoted-collapse__summary::-webkit-details-marker {
+  display: none;
+}
+
+.email-html-body details.quoted-collapse > summary.quoted-collapse__summary::before {
+  content: '▸ ';
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.email-html-body details.quoted-collapse[open] > summary.quoted-collapse__summary::before {
+  content: '▾ ';
+}
+
+.email-html-body details.quoted-collapse > summary.quoted-collapse__summary:hover {
+  background: #f1f5f9;              /* slate-100 */
+}
+
+[data-mode='dark'] .email-html-body details.quoted-collapse > summary.quoted-collapse__summary:hover {
+  background: #334155;              /* slate-700 */
+}
+
+.email-html-body.email-html-body--white details.quoted-collapse > summary.quoted-collapse__summary:hover {
+  background: #f1f5f9;
+}
+
+.email-html-body details.quoted-collapse .quoted-collapse__content {
+  padding: 12px 14px;
+  border-top: 1px solid #e2e8f0;    /* slate-200 */
+}
+
+[data-mode='dark'] .email-html-body details.quoted-collapse .quoted-collapse__content {
+  border-top-color: #475569;        /* slate-600 */
+}
+
+.email-html-body.email-html-body--white details.quoted-collapse .quoted-collapse__content {
+  border-top-color: #e2e8f0;
+}
+
+/* Styled mini-header for our own forwarded-mail wrapper.  Two-column
+   key-value layout (label / value) for the From / Date / Subject /
+   To rows we extracted from the source HTML. */
+.email-html-body details.quoted-collapse .quoted-collapse__header {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 12px;
+  row-gap: 2px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed #e2e8f0; /* slate-200 */
+  font-size: var(--t-caption);
+  line-height: 1.55;
+}
+
+[data-mode='dark'] .email-html-body details.quoted-collapse .quoted-collapse__header {
+  border-bottom-color: #475569;     /* slate-600 */
+}
+
+.email-html-body.email-html-body--white details.quoted-collapse .quoted-collapse__header {
+  border-bottom-color: #e2e8f0;
+}
+
+.email-html-body details.quoted-collapse .quoted-collapse__field {
+  display: contents; /* let the field's children sit directly in the grid */
+}
+
+.email-html-body details.quoted-collapse .quoted-collapse__label {
+  font-weight: 600;
+  color: #475569;                   /* slate-600 — 7.2:1 on slate-50 */
+  text-align: right;
+}
+
+[data-mode='dark'] .email-html-body details.quoted-collapse .quoted-collapse__label {
+  color: #94a3b8;                   /* slate-400 — 5.7:1 on slate-800 */
+}
+
+/* Was slate-400 on the white card's slate-50 block: 2.4:1. */
+.email-html-body.email-html-body--white details.quoted-collapse .quoted-collapse__label {
+  color: #475569;
+}
+
+.email-html-body details.quoted-collapse .quoted-collapse__value {
+  color: inherit;
+  word-break: break-word;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   DESIGN SYSTEM  (v3 — "Wolkenmeer", 2026-09-30)
+   ══════════════════════════════════════════════════════════════════════
+
+   The UI's foundation. Everything below this block —
+   every primitive, every screen — reads from these tokens and never
+   hard-codes a size, a radius or a duration.
+
+   v3 keeps v2's structure (inbox first, one labelled primary action per
+   screen) and replaces its look, which read as a stock template: the
+   platform's blue, a pastel initials circle on every row, a rainbow of
+   settings tiles, and one identical rounded card around everything.
+   `docs/design/2026-09-30-v3-wolkenmeer.md` has the critique and the
+   reasoning. The rules, each carried by a token or a primitive here:
+
+     1. Ink on fog. Content is ink on a cool fog ground; colour is a
+        signal, never decoration.
+     2. Two colours, two jobs. The accent (petrol in the house theme) is
+        what you can *do*; the signal (`--ui-signal-*`, Morgenrot in the
+        house theme) is what is *new*. See `themes/unkai.css`.
+     3. Rounded speaks, the text face reads. Screen titles, section
+        titles and a message's subject use `--font-display` (the
+        theme's heading face — SF Pro Rounded in the house theme);
+        everything the user reads uses the body face.
+     4. Boxes only for groups. A card means "these belong together" —
+        settings, a form. A list of messages or a message itself sits
+        on the page. Cards are flat: no shadow under every one.
+     5. One left edge (`--gutter`). Titles, list text and headers start
+        on it; marks like the unread dot hang in the margin before it.
+     6. Bars float. The tab bar and the reader's toolbar are capsules
+        above the home indicator, with the list scrolling beneath them.
+
+   Derived from the active Skeleton theme's colour scale throughout, so
+   all 22 stock themes keep working and keep their own character.
+   ══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Type scale ──────────────────────────────────────────────────
+     A modular scale with a real hierarchy, which the old UI lacked —
+     it ran almost everything at 13-15px, so a sender, a subject and a
+     timestamp all carried the same visual weight and the eye had
+     nowhere to land first.
+
+     Each step pairs a size with the line-height it actually wants:
+     tight for headings (they are short and want to read as a block),
+     looser for body text (it wraps and wants breathing room).
+
+     ── Dynamic Type ──
+     The px values are the design at iOS's default text size. Every
+     step is multiplied by `--dt-content`, which `lib/dynamicType.ts`
+     keeps in step with the user's text size setting (Settings →
+     Display & Brightness → Text Size, and the larger Accessibility
+     sizes). That is what "Larger Text" means on the App Store's
+     accessibility labels and what WCAG 1.4.4 asks for: the scale is
+     capped at 200%, the size the criterion names, and line-heights
+     travel with it so nothing clips.
+
+     Chrome — the tab bar, a bar title, a badge — uses `--dt-chrome`
+     instead, capped much lower. iOS does the same with its own bars:
+     at the largest sizes a tab label that grew with the text would
+     no longer fit five tabs on a phone. Content is what has to scale;
+     a bar has to stay usable. */
+  --t-display: calc(34px * var(--dt-content, 1));   --t-display-lh: calc(40px * var(--dt-content, 1));   /* screen title, expanded */
+  --t-title: calc(24px * var(--dt-content, 1));     --t-title-lh: calc(30px * var(--dt-content, 1));     /* a message's subject, a sheet's heading */
+  --t-title-2: calc(20px * var(--dt-content, 1));   --t-title-2-lh: calc(26px * var(--dt-content, 1));   /* section titles */
+  --t-headline: calc(17px * var(--dt-content, 1));  --t-headline-lh: calc(22px * var(--dt-content, 1));  /* card primary — the sender */
+  --t-body: calc(16px * var(--dt-content, 1));      --t-body-lh: calc(22px * var(--dt-content, 1));      /* row titles, reading text */
+  --t-callout: calc(15px * var(--dt-content, 1));   --t-callout-lh: calc(20px * var(--dt-content, 1));   /* the subject in a list, supporting prose */
+  --t-footnote: calc(13px * var(--dt-content, 1));  --t-footnote-lh: calc(18px * var(--dt-content, 1));  /* attachment names, chips */
+  --t-caption: calc(12px * var(--dt-content, 1));   --t-caption-lh: calc(16px * var(--dt-content, 1));   /* meta — dates, counts */
+  --t-micro: calc(11px * var(--dt-content, 1));     --t-micro-lh: calc(14px * var(--dt-content, 1));     /* badges, overline labels */
+
+  /* Bar-bound text: scales, but only as far as a bar can take. */
+  --t-bar-title: calc(17px * var(--dt-chrome, 1));  /* compact nav-bar title */
+  --t-bar-body: calc(15px * var(--dt-chrome, 1));   /* back label, toolbar text */
+  --t-bar-action: calc(16px * var(--dt-chrome, 1)); /* text buttons in a bar */
+  --t-bar-label: calc(11px * var(--dt-chrome, 1));  /* tab and toolbar labels */
+  --t-badge: calc(10px * var(--dt-chrome, 1));      /* count bubbles */
+
+  /* The face the app speaks in: the theme's heading family. The house
+     theme sets SF Pro Rounded; a theme without one inherits the body
+     face, so nothing looks broken in the other 22. */
+  --font-display: var(--typo-heading--font-family, inherit);
+
+  /* Every text control. Never below 16px — iOS zooms the viewport on
+     focus when a field's text is smaller — and above it once the user
+     has asked for larger text. */
+  --t-input: max(16px, calc(16px * var(--dt-content, 1)));
+  /* Full-width buttons and action-sheet rows: the size of a control's
+     label, scaling like content since a sheet has room to grow. */
+  --t-control: calc(16px * var(--dt-content, 1));
+
+  /* ── Spacing ─────────────────────────────────────────────────────
+     A 4pt grid. Cards get `--s-4`/`--s-5` of internal padding rather
+     than the old 8px: the single biggest reason the old list read as
+     a database table is that its rows had no room to breathe. */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-12: 48px;
+
+  /* The page's one left edge. Screen titles, list text, section titles
+     and card edges line up on it; v2 had four different starts (16, 32,
+     78, 88) and the eye felt every one of them. 20pt is the margin the
+     platform uses at this width. */
+  --gutter: 20px;
+
+  /* ── Radii ───────────────────────────────────────────────────────
+     Larger than the old 0.75rem. A 16-18px radius at a 390pt width is
+     what reads as "card" rather than "rounded rectangle", and it
+     matches the corner curvature of the hardware it renders on. */
+  --r-xs: 6px;    /* badges that are not pills, the thread count */
+  --r-sm: 10px;   /* fields, segmented controls */
+  --r-md: 14px;   /* attachments, notices, tiles' inner parts */
+  --r-lg: 18px;   /* cards */
+  --r-xl: 28px;   /* sheets, floating bars */
+  --r-full: 999px;
+  /* A hierarchy, not one number: a v2 screen drew the same 20px corner
+     on the sender block, an attachment, the body and every card, which
+     is exactly what made it read as a kit. Larger things are rounder. */
+
+  /* ── Surfaces ────────────────────────────────────────────────────
+     The inversion that makes cards work.
+
+     The old UI painted the page and its rows the same colour, so a
+     "card" could only be suggested with a border. Here the page is
+     deliberately *recessed* and cards sit *above* it. That one
+     relationship does more for the redesign than any amount of
+     shadow: it gives the layout a z-axis, so grouping becomes
+     something the eye reads instead of something a divider asserts. */
+  --ui-canvas: var(--color-surface-100);
+  --ui-card: var(--color-surface-50);
+  --ui-card-raised: #fff;
+  /* The floating bars' own surface. Light: raised white, lifted by its
+     shadow. Dark: the card colour, because the active tab's quiet
+     lozenge sits on it and the contrast solver guarantees accent ink on
+     that wash over the card (`washesFor`), not over the raised card. */
+  --ui-bar: var(--ui-card-raised);
+  /* The ground of a *plain* screen (`.screen--plain`): a list that runs
+     edge to edge instead of sitting in a card — the mail list. Light
+     mode: the card colour, so the list reads as one sheet of paper.
+     Dark mode: the canvas, near-black. Both are backgrounds the contrast
+     solver already checks every ink against. */
+  --ui-plain: var(--color-surface-50);
+  --ui-hairline: color-mix(in oklab, var(--color-surface-500) 14%, transparent);
+  --ui-border: color-mix(in oklab, var(--color-surface-500) 20%, transparent);
+  /* A card's outline. None in light mode: the shadow on the recessed
+     canvas lifts it, and a border on every card is what made the old
+     screens read like forms. Dark mode brings it back (see below). */
+  --ui-card-border: transparent;
+
+  /* ── Tints ───────────────────────────────────────────────────────
+     Translucent washes, named by role. Each was written out by hand in
+     several components before; as tokens they agree everywhere and can
+     be tuned in one place. Text on a tint stays ink, never accent. */
+  --ui-tint-accent: color-mix(in oklab, var(--color-primary-500) 12%, transparent);
+  --ui-tint-success: color-mix(in oklab, var(--color-success-500) 14%, transparent);
+  --ui-tint-warning: color-mix(in oklab, var(--color-warning-500) 18%, transparent);
+  --ui-tint-danger: color-mix(in oklab, var(--color-error-500) 12%, transparent);
+  --ui-tint-signal: color-mix(in oklab, var(--color-secondary-500) 12%, transparent);
+  /* Press feedback on rows and tiles. */
+  --ui-press: color-mix(in oklab, var(--color-surface-500) 14%, transparent);
+  /* The quiet fill of a secondary control: search trigger, quiet button,
+     segmented track. */
+  --ui-fill-quiet: color-mix(in oklab, var(--color-surface-500) 13%, transparent);
+
+  /* Text roles — `--ui-ink`, `--ui-ink-muted`, `--ui-ink-faint` — and
+     every other colour that carries text or marks a control live in
+     the generated `accessible-colors.css`, solved per theme to a
+     guaranteed contrast. See the fallback block after this one. */
+
+  /* ── Elevation ───────────────────────────────────────────────────
+     Restrained on purpose. A phone screen is small and high-contrast;
+     heavy shadows read as clutter and cost real compositing work when
+     hundreds of them scroll. A hairline plus a short, soft shadow is
+     enough to lift a card off the canvas. */
+  --e-1: 0 1px 2px color-mix(in oklab, var(--color-surface-950) 6%, transparent);
+  --e-2: 0 6px 18px -6px color-mix(in oklab, var(--color-surface-950) 20%, transparent);
+  --e-3: 0 12px 32px -12px color-mix(in oklab, var(--color-surface-950) 28%, transparent);
+  /* Floating bars (the tab bar, the reader's toolbar, the compose
+     pill): a crisp contact shadow plus a wide soft one, so they read as
+     lifted off the list that scrolls beneath them. Neutral, never tinted
+     with the accent — a coloured glow was one of v2's template tells. */
+  --e-float: 0 1px 1px color-mix(in oklab, var(--color-surface-950) 8%, transparent),
+    0 10px 30px -8px color-mix(in oklab, var(--color-surface-950) 24%, transparent);
+
+  /* ── Motion ──────────────────────────────────────────────────────
+     One easing curve for everything that moves, so the app has a
+     single sense of physics. The durations are deliberately short:
+     on a phone, motion that explains a transition is useful, motion
+     you have to wait through is not. */
+  --m-fast: 130ms;   /* press feedback */
+  --m-base: 220ms;   /* state changes, reveals */
+  --m-slow: 320ms;   /* screen transitions */
+  --m-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --m-spring: cubic-bezier(0.34, 1.3, 0.64, 1);  /* overshoot, for arrivals */
+
+  /* ── Semantic accents ────────────────────────────────────────────
+     Meaning carried by colour, so state is legible before any icon is
+     read. Each is a role, never "the amber one" — swapping a theme
+     must not silently change what a colour means.
+
+     They point at the solved inks rather than the raw 500 shades: an
+     unread rail or a flag icon is a graphic that has to be seen
+     (WCAG 1.4.11, 3:1), and a pale theme's primary-500 measured 1.02:1
+     against its own card. Colour is never the *only* signal, either —
+     unread is also weight and a rail, and every state icon has a text
+     alternative for VoiceOver. */
+  --ui-unread: var(--ui-accent-ink);
+  --ui-flagged: var(--ui-warning-ink);
+  --ui-urgent: var(--ui-danger-ink);
+  --ui-secure: var(--ui-tertiary-ink);
+  --ui-done: var(--ui-success-ink);
+  /* "Today" in the calendar and the count on a tab: what is new or now. */
+  --ui-now-fill: var(--ui-accent-fill);
+  --ui-on-now: var(--ui-on-accent);
+}
+
+/* The house theme splits the two jobs a stock theme gives its one
+   accent: petrol for actions, Morgenrot for what is new. The
+   signal tokens are solved for every theme, but only here do they take
+   the role over — a stock theme's secondary colour was never chosen to
+   mean "unread", and repainting 22 themes' unread marks by accident is
+   not a redesign. Same specificity as `:root`, later in the file, so it
+   wins on the element that carries the theme. */
+[data-theme='unkai'] {
+  --ui-unread: var(--ui-signal-ink);
+  --ui-now-fill: var(--ui-signal-fill);
+  --ui-on-now: var(--ui-on-signal);
+}
+
+/*
+   Fallback inks, for the one moment no generated block applies: the
+   first paint, before `lib/theme.ts` has set `data-theme`. `:where()`
+   gives these zero specificity, so any `[data-theme]` block in
+   `accessible-colors.css` wins wherever it matches, whatever the source
+   order. They are the pre-solver recipes and are not contrast-checked;
+   they only have to look right for a frame.
+*/
+:where(:root) {
+  --ui-ink: var(--color-surface-900);
+  --ui-ink-muted: color-mix(in oklab, var(--color-surface-900) 72%, transparent);
+  --ui-ink-faint: color-mix(in oklab, var(--color-surface-900) 62%, transparent);
+  --ui-accent-ink: var(--color-primary-700);
+  --ui-danger-ink: var(--color-error-700);
+  --ui-warning-ink: var(--color-warning-800);
+  --ui-success-ink: var(--color-success-800);
+  --ui-tertiary-ink: var(--color-tertiary-700);
+  --ui-accent-fill: var(--color-primary-500);
+  --ui-on-accent: var(--color-primary-contrast-500);
+  --ui-danger-fill: var(--color-error-500);
+  --ui-on-danger: var(--color-error-contrast-500);
+  --ui-success-fill: var(--color-success-500);
+  --ui-on-success: var(--color-success-contrast-500);
+  --ui-warning-fill: var(--color-warning-500);
+  --ui-on-warning: var(--color-warning-contrast-500);
+  --ui-neutral-fill: var(--color-surface-500);
+  --ui-on-neutral: var(--color-surface-contrast-500);
+  --ui-signal-ink: var(--color-secondary-700);
+  --ui-signal-fill: var(--color-secondary-500);
+  --ui-on-signal: var(--color-secondary-contrast-500);
+  --ui-control: color-mix(in oklab, var(--color-surface-900) 45%, transparent);
+}
+
+:where([data-mode='dark']) {
+  --ui-ink: var(--color-surface-50);
+  --ui-ink-muted: color-mix(in oklab, var(--color-surface-50) 74%, transparent);
+  --ui-ink-faint: color-mix(in oklab, var(--color-surface-50) 62%, transparent);
+  --ui-accent-ink: var(--color-primary-300);
+  --ui-danger-ink: var(--color-error-300);
+  --ui-warning-ink: var(--color-warning-300);
+  --ui-success-ink: var(--color-success-300);
+  --ui-tertiary-ink: var(--color-tertiary-300);
+  --ui-signal-ink: var(--color-secondary-300);
+  --ui-control: color-mix(in oklab, var(--color-surface-50) 45%, transparent);
+}
+
+/* Semantic text colours for markup. Use these instead of Tailwind's
+   `text-primary-500` / `text-error-500`: those are the raw theme shades,
+   and as text they fail AA in most of the stock themes. */
+.ink-accent {
+  color: var(--ui-accent-ink);
+}
+.ink-danger {
+  color: var(--ui-danger-ink);
+}
+.ink-warning {
+  color: var(--ui-warning-ink);
+}
+.ink-success {
+  color: var(--ui-success-ink);
+}
+.ink-muted {
+  color: var(--ui-ink-muted);
+}
+.ink-faint {
+  color: var(--ui-ink-faint);
+}
+
+/* Type-scale steps for markup, in place of Tailwind's fixed `text-[15px]`
+   arbitrary values, which ignore Dynamic Type. */
+.t-display {
+  font-family: var(--font-display);
+  font-size: var(--t-display);
+  line-height: var(--t-display-lh);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+.t-title {
+  font-family: var(--font-display);
+  font-size: var(--t-title);
+  line-height: var(--t-title-lh);
+}
+.t-headline {
+  font-size: var(--t-headline);
+  line-height: var(--t-headline-lh);
+}
+.t-callout {
+  font-size: var(--t-callout);
+  line-height: var(--t-callout-lh);
+}
+.t-caption {
+  font-size: var(--t-caption);
+  line-height: var(--t-caption-lh);
+}
+.t-body {
+  font-size: var(--t-body);
+  line-height: var(--t-body-lh);
+}
+.t-footnote {
+  font-size: var(--t-footnote);
+  line-height: var(--t-footnote-lh);
+}
+.t-micro {
+  font-size: var(--t-micro);
+  line-height: var(--t-micro-lh);
+}
+
+[data-mode='dark'] {
+  /* Dark mode is not the light palette inverted. The canvas goes
+     near-black so raised surfaces have somewhere to rise *to* —
+     lifting a card on an already-light-grey ground is impossible, and
+     that is why the old dark theme read as uniformly flat. */
+  --ui-canvas: var(--color-surface-950);
+  --ui-card: var(--color-surface-900);
+  --ui-card-raised: color-mix(in oklab, var(--color-surface-800) 70%, var(--color-surface-900));
+  --ui-bar: var(--ui-card);
+  --ui-hairline: color-mix(in oklab, var(--color-surface-50) 10%, transparent);
+  --ui-border: color-mix(in oklab, var(--color-surface-50) 14%, transparent);
+  --ui-card-border: var(--ui-hairline);
+  --ui-plain: var(--color-surface-950);
+  --ui-fill-quiet: color-mix(in oklab, var(--color-surface-50) 11%, transparent);
+  --ui-press: color-mix(in oklab, var(--color-surface-50) 9%, transparent);
+
+  /* Shadows do almost nothing on a dark ground — a border carries the
+     separation instead, so the shadows stay but shrink to a hint. */
+  --e-1: 0 1px 2px color-mix(in oklab, #000 30%, transparent);
+  --e-2: 0 4px 14px -6px color-mix(in oklab, #000 50%, transparent);
+  --e-3: 0 12px 32px -12px color-mix(in oklab, #000 65%, transparent);
+  --e-float: 0 0 0 1px var(--ui-hairline), 0 12px 30px -10px color-mix(in oklab, #000 70%, transparent);
+}
+
+/* Tailwind's text utilities (`text-sm`, `text-xs`, …) follow Dynamic
+   Type too. Skeleton defines them as rem × `--text-scaling`; they are
+   redefined here rather than by changing `--text-scaling`, because
+   Skeleton also multiplies its *unitless line-height ratios* by that
+   variable, which would scale the spacing between lines twice. Spacing
+   and radii stay in fixed rem: text grows, the layout grid does not. */
+:root {
+  --text-xs: calc(0.75rem * var(--dt-content, 1));
+  --text-sm: calc(0.875rem * var(--dt-content, 1));
+  --text-base: calc(1rem * var(--dt-content, 1));
+  --text-lg: calc(1.125rem * var(--dt-content, 1));
+  --text-xl: calc(1.25rem * var(--dt-content, 1));
+  --text-2xl: calc(1.5rem * var(--dt-content, 1));
+  --text-3xl: calc(1.875rem * var(--dt-content, 1));
+}
+
+/* Respect the system setting. Everything above animates; a user who
+   has asked for less motion gets state changes without the travel. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --m-fast: 1ms;
+    --m-base: 1ms;
+    --m-slow: 1ms;
+  }
+}
+
+/* ── Mobile layout primitives ────────────────────────────────────────── */
+/* The vocabulary every screen composes from. Kept here rather than in
+   component <style> blocks because these are *shared* shapes — a
+   grouped list looks the same in Settings, in Contacts, and in the
+   folder picker, and that consistency is most of what makes an app
+   feel like one app. */
+
+/* A screen: nav bar (fixed) + scrolling content, filling the viewport
+   between the shell's chrome. */
+.screen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  background: var(--ui-canvas);
+}
+
+.screen__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  /* The tab bar floats over the bottom of the screen (v3), so the last
+     row has to be able to scroll clear of it. `--bar-clearance` is the
+     bar's measured height plus its offset, published by `TabBar` while
+     it is on screen and absent otherwise. */
+  padding-bottom: var(--bar-clearance, 0px);
+  /* …and a row moved into view by keyboard or Switch Control focus
+     stops above the bar instead of under it (WCAG 2.4.7). */
+  scroll-padding-bottom: var(--bar-clearance, 0px);
+}
+
+/* Content set directly on the page — a closing button under a form, a
+   note's text — starts on the gutter, so its edges line up with the
+   cards and the title. Tailwind's `px-4` is 16pt, the old inset. */
+.page-inset {
+  padding-inline: var(--gutter);
+}
+
+/* A plain screen: its content runs edge to edge on one sheet instead of
+   sitting in cards on a recessed canvas. For lists where width is worth
+   more than grouping — a mail list loses 32px of subject line to card
+   margins, on every row. Re-pointing `--ui-canvas` rather than setting a
+   background means the NavBar, the pull-to-refresh scroller and the
+   screen agree without each knowing about the modifier. */
+.screen--plain {
+  --ui-canvas: var(--ui-plain);
+  /* Rows that paint their own opaque layer (SwipeRow) match the sheet. */
+  --ui-row: var(--ui-plain);
+}
+
+/* ── Long lists ──────────────────────────────────────────────────────
+   `.list-lazy` on a row wrapper lets the engine skip layout and paint
+   for that row while it is off screen. It is the grouped-list version
+   of what `MailList` already does for message rows in its own scoped
+   style; this is the reusable form for the other long lists.
+
+   Rows in these lists are not cheap — an avatar, two lines of text
+   that each need measuring — and an address book is thousands of them.
+   Rendering all of that for rows nobody can see is most of what makes
+   a long list stutter under a thumb. `content-visibility` is the
+   cheapest available fix: no windowing library, no scroll-position
+   bookkeeping, and find-in-page and screen readers keep working
+   because the content stays in the DOM.
+
+   Always pair it with `contain-intrinsic-size`, or the scrollbar
+   lurches as rows resolve. The `auto` keyword makes the engine
+   remember each row's real height once measured, so the estimate only
+   applies to rows that have never been on screen; the second value is
+   the typical `.list-row` height.
+
+   Engines without `content-visibility` (iOS below 18) ignore the
+   declaration and render every row as before — the correct rendering
+   is the fallback, so no `@supports` guard is needed. */
+.list-lazy {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 56px;
+}
+
+/* ── Cards ────────────────────────────────────────────────────────────
+   `.list-group` is now a **card**, not a table section, and because
+   every screen in the app already uses it, this one rule is what
+   carries the redesign across all ~32 of them at once.
+
+   What changed and why:
+
+     * It floats. Inset from both edges, fully rounded, lifted off the
+       recessed canvas with a hairline and a short shadow. The old
+       edge-to-edge band with a top and bottom border reads as a
+       divider between regions; a card reads as an object, and objects
+       are what a thumb believes it is touching.
+     * It has room. `--s-3` of vertical rhythm between cards and real
+       padding inside, instead of rows packed to the pixel.
+     * Its separators stop short on *both* sides, not just the leading
+       edge — inside a rounded card a hairline that runs into the
+       corner looks like a mistake. */
+/* v3: flat. The white card on the fog canvas is contrast enough; the
+   soft grey shadow v2 put under every card was the "card kit" look, and
+   a shadow that appears on everything stops meaning "above". Edges sit
+   on the gutter, so a card lines up with the screen title above it. */
+.list-group {
+  background: var(--ui-card);
+  /* What an autofilled field inside the card is painted back to. */
+  --field-surface: var(--ui-card);
+  margin: var(--s-2) var(--gutter) var(--s-3);
+  border: 1px solid var(--ui-card-border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+/* `--inset` used to be the opt-in rounded variant. Now that every
+   group is inset it is a no-op, kept so the ~dozen screens passing it
+   keep working without an edit. */
+.list-group--inset {
+  margin-inline: var(--gutter);
+}
+
+/* A header belongs to the card below it, so it sits close to it and
+   far from whatever came before — proximity is what says "these two
+   things are one unit". Sentence case, not shouted uppercase: the
+   label is a quiet signpost, not a section banner. */
+.list-header {
+  /* Starts where the card's text does (gutter + the row's padding), so
+     the header reads as the first line of the card it names. */
+  padding: var(--s-6) calc(var(--gutter) + var(--s-4)) var(--s-1);
+  font-size: var(--t-footnote);
+  line-height: var(--t-footnote-lh);
+  font-weight: 600;
+  color: var(--ui-ink-muted);
+}
+
+.list-footer {
+  padding: var(--s-1) var(--s-4) 0;
+  margin-inline: var(--gutter);
+  font-size: var(--t-caption);
+  line-height: var(--t-caption-lh);
+  color: var(--ui-ink-faint);
+}
+
+/* Rows are ≥52px — up from 46. Apple's 44pt minimum is the floor for
+   *hitting* a target, not the size at which a list is comfortable to
+   read down; the extra 8px is most of what makes the new list feel
+   calmer than the old one. */
+.list-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  width: 100%;
+  min-height: 52px;
+  padding: var(--s-3) var(--s-4);
+  text-align: left;
+  position: relative;
+  transition: background-color var(--m-fast) var(--m-ease);
+}
+
+.list-row + .list-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--s-4);
+  right: var(--s-4);
+  height: 1px;
+  background: var(--ui-hairline);
+}
+
+/* Press feedback, not hover: there is no cursor here. The row tints
+   *and* dips a little — the scale is barely perceptible on its own,
+   but its absence is exactly why a web button never feels physical. */
+/* Rows sit inside a card that clips its corners, so a ring drawn
+   outside the row would be cut off; draw it inside instead. */
+.list-row:focus-visible {
+  outline-offset: -3px;
+}
+
+button.list-row:active,
+a.list-row:active {
+  background: var(--ui-press);
+}
+
+/* A row that leads with an icon tile: the separator starts where the
+   text does, so tile and label read as one unit and the hairlines line
+   up down the card. */
+.list-row:has(> .icon-tile) + .list-row::before,
+.list-row + .list-row:has(> .icon-tile)::before {
+  left: calc(var(--s-4) + 30px + var(--s-3));
+}
+
+.list-row__title {
+  font-size: var(--t-body);
+  line-height: var(--t-body-lh);
+  font-weight: 500;
+  color: var(--ui-ink);
+}
+
+/* Secondary line under a row title. */
+.list-row__subtitle {
+  display: block;
+  font-size: var(--t-footnote);
+  line-height: var(--t-footnote-lh);
+  color: var(--ui-ink-muted);
+}
+
+.list-row__detail {
+  font-size: var(--t-callout);
+  color: var(--ui-ink-muted);
+}
+
+/* The dark-mode override the muted role now handles on its own. */
+
+/* Disclosure chevron. Faint on purpose: it marks a row as leading
+   somewhere, and once the reader has learned that, it should stop
+   competing with the label it sits next to. */
+.list-row__chevron {
+  color: var(--ui-ink-faint);
+  flex-shrink: 0;
+}
+
+/* Unread / count pill used on folder and account rows. */
+.count-pill {
+  min-width: 22px;
+  padding-inline: 7px;
+  border-radius: var(--r-full);
+  font-size: var(--t-caption);
+  font-weight: 600;
+  line-height: calc(20px * var(--dt-content, 1));
+  text-align: center;
+  color: var(--ui-ink-muted);
+  background: var(--ui-fill-quiet);
+}
+
+.count-pill--accent {
+  background: var(--ui-accent-fill);
+  color: var(--ui-on-accent);
+}
+
+/* A count of things that are *new* (unread mail on a folder row): the
+   signal colour, the same as the unread mark it sums up. */
+.count-pill--signal {
+  background: var(--ui-now-fill);
+  color: var(--ui-on-now);
+}
+
+/* Form controls inside grouped lists: outline-only and slim, the
+   #522 treatment adapted to touch heights. One scoped rule so raw
+   inputs, textareas and selects agree without per-field utilities. */
+.form-group .input,
+.form-group input[type='text'],
+.form-group input[type='email'],
+.form-group input[type='password'],
+.form-group input[type='number'],
+.form-group input[type='date'],
+.form-group input[type='time'],
+.form-group input[type='url'],
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  background-color: transparent;
+  /* A field's outline is how a sighted user finds it at all: 3:1
+     against the card (WCAG 1.4.11), solved per theme. */
+  border: 1px solid var(--ui-control);
+  border-radius: var(--r-sm);
+  min-height: 44px;
+  padding: 10px 12px;
+  color: inherit;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: var(--ui-ink-muted);
+}
+
+/* AutoFill. When iOS fills an address or a password from the keychain
+   or the QuickType bar, WebKit repaints that one field in its own pale
+   yellow or blue with black text — an `!important` rule in its built-in
+   stylesheet, so `background` cannot win against it. On a dark page the
+   form then shows one bright field among dark ones. An inset shadow as
+   wide as the field covers the paint in the surface the field sits on
+   (`--field-surface`, the page unless a card says otherwise), and the
+   text keeps the theme's ink. The focus ring is repeated, because this
+   rule replaces the focus rule's shadow. */
+.form-group input:-webkit-autofill,
+.form-group input:-webkit-autofill:hover {
+  -webkit-text-fill-color: var(--ui-ink);
+  caret-color: var(--ui-ink);
+  -webkit-box-shadow: 0 0 0 1000px var(--field-surface, var(--ui-canvas)) inset;
+}
+
+.form-group input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--ui-ink);
+  -webkit-box-shadow:
+    0 0 0 1000px var(--field-surface, var(--ui-canvas)) inset,
+    0 0 0 3px var(--ui-tint-accent);
+}
+
+.form-group .input:focus,
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--ui-accent-ink);
+  box-shadow: 0 0 0 3px var(--ui-tint-accent);
+}
+
+/* A host + port pair on one line.
+   `.form-group` above sets `width: 100%` on every control, which
+   would otherwise let the port field claim the whole row and squash
+   the host down to nothing. These rules must stay BELOW that block:
+   they have the same specificity, so source order is what decides. */
+.field-pair {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-group .field-pair__grow {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+
+.form-group .field-pair__port {
+  flex: 0 0 5.5rem;
+  width: 5.5rem;
+}
+
+/* Field row whose control sits flush right without a box — a value
+   the user picks rather than types. */
+.value-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  /* A 44pt target (Apple HIG) that still sits in a row as the 36px
+     control it looks like: the negative margin hands the extra 8px
+     back to the row's padding. */
+  min-height: 44px;
+  margin-block: -4px;
+  padding-inline: var(--s-2);
+  border-radius: var(--r-sm);
+  color: var(--ui-accent-ink);
+  font-size: var(--t-body);
+}
+
+.value-button:active {
+  opacity: 0.6;
+}
+
+/* Full-width action button used at the bottom of forms and sheets.
+   A capsule: the one shape in the app that means "this does the thing",
+   so a customer never has to wonder which element on a form is the
+   button. */
+.wide-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  width: 100%;
+  min-height: 52px;
+  padding: var(--s-2) var(--s-5);
+  border-radius: var(--r-full);
+  font-size: var(--t-control);
+  font-weight: 600;
+  background: var(--ui-accent-fill);
+  color: var(--ui-on-accent);
+  transition:
+    transform var(--m-fast) var(--m-ease),
+    opacity var(--m-fast) var(--m-ease);
+}
+
+.wide-button:disabled {
+  opacity: 0.45;
+}
+
+.wide-button--quiet {
+  background: var(--ui-fill-quiet);
+  color: var(--ui-ink);
+}
+
+/* A secondary action next to a primary one: no fill at all, accent
+   text. Reads as "also possible" rather than competing. */
+.wide-button--plain {
+  background: transparent;
+  color: var(--ui-accent-ink);
+}
+
+.wide-button--destructive {
+  background: var(--ui-danger-fill);
+  color: var(--ui-on-danger);
+}
+
+/* A destructive action that is *available*, not proposed: emptying the
+   trash under its list. The red fill is for the moment of commitment
+   (the confirmation sheet); on the page, a filled red capsule was the
+   loudest thing on screen for the rarest action on it. Danger ink on
+   the quiet wash, which the solver guarantees at AA. */
+.wide-button--destructive-quiet {
+  background: var(--ui-fill-quiet);
+  color: var(--ui-danger-ink);
+}
+
+.wide-button:active:not(:disabled) {
+  transform: scale(0.98);
+  opacity: 0.85;
+}
+
+/* ── Icon tile ────────────────────────────────────────────────────────
+   The glyph that leads a settings or hub row. v2 painted it on a
+   coloured square — a different colour per category, the way a phone's
+   own settings look — which put five saturated colours on a screen
+   whose design rule is one accent, and made every settings page read as
+   a copy of the platform's. v3 draws the glyph alone, in muted ink, in
+   the same 30pt box (so rows and their separators keep their
+   alignment). Colour comes back only where it *means* something:
+   `--danger` for a destructive row, `--warning` for a status that needs
+   attention (test mode). The other tone names stay valid and quiet, so
+   no caller had to change. */
+.icon-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-sm);
+  color: var(--ui-ink-muted);
+}
+.icon-tile--danger {
+  color: var(--ui-danger-ink);
+}
+.icon-tile--warning {
+  color: var(--ui-warning-ink);
+}
+/* The large tile leads a card of its own (the More hub's features, the
+   account card when there are several): there the glyph gets a quiet
+   ground, because a lone glyph at the top of a card looks unfinished. */
+.icon-tile--lg {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  background: var(--ui-fill-quiet);
+  color: var(--ui-ink);
+}
+
+/* ── Feature tiles ────────────────────────────────────────────────────
+   A two-column grid of cards, each an icon tile beside a label — the
+   More hub's shortcuts. A grid rather than a list because these are
+   *places* the user picks between, and a grid shows all of them at
+   once on a phone without scrolling. */
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-2);
+  margin: var(--s-2) var(--gutter) var(--s-3);
+}
+
+.tile {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  /* Glyph beside the label, not above it: v2's tall tiles made five
+     features three screen-heights of card. 64pt is a comfortable
+     target and keeps the whole hub on one screen. */
+  min-height: 64px;
+  padding: var(--s-3);
+  text-align: left;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--ui-card-border);
+  background: var(--ui-card);
+  transition:
+    transform var(--m-fast) var(--m-ease),
+    background-color var(--m-fast) var(--m-ease);
+}
+
+.tile:active {
+  transform: scale(0.97);
+  background: color-mix(in oklab, var(--ui-card) 90%, var(--color-surface-500));
+}
+
+.tile__title {
+  font-size: var(--t-body);
+  line-height: var(--t-body-lh);
+  font-weight: 600;
+  color: var(--ui-ink);
+}
+
+.tile__detail {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--t-footnote);
+  line-height: var(--t-footnote-lh);
+  color: var(--ui-ink-muted);
+}
+
+/* ── Search trigger ───────────────────────────────────────────────────
+   Looks like a search field, is a button that opens the search screen.
+   A visible field is what a customer looks for; a magnifier in the
+   corner is what an expert remembers. The real `SearchField` lives on
+   the screen it opens. */
+.search-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  width: 100%;
+  min-height: 44px;
+  padding-inline: var(--s-4);
+  /* A capsule, and so is the real field it opens (`SearchField`):
+     tapping one should feel like the other simply woke up. */
+  border-radius: var(--r-full);
+  background: var(--ui-fill-quiet);
+  color: var(--ui-ink-muted);
+  font-size: var(--t-body);
+  text-align: left;
+}
+
+.search-trigger:active {
+  background: var(--ui-press);
+}
+
+/* ── Section title ────────────────────────────────────────────────────
+   A heading inside a screen's content (not a list header): "Today" over
+   an agenda, a hub's group name. Bigger than `.list-header` because it
+   introduces a region, not a card. */
+.section-title {
+  padding: var(--s-6) var(--gutter) var(--s-1);
+  font-family: var(--font-display);
+  font-size: var(--t-title-2);
+  line-height: var(--t-title-2-lh);
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  color: var(--ui-ink);
+}
+
+/* Nav-bar icon button: 44×44 target, icon-only, no chrome at rest. */
+.bar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: var(--r-sm);
+  color: var(--ui-accent-ink);
+}
+
+.bar-button:disabled {
+  opacity: 0.35;
+}
+
+.bar-button:active:not(:disabled) {
+  opacity: 0.55;
+}
+
+.bar-button--text {
+  font-size: var(--t-bar-action);
+  padding-inline: var(--s-2);
+}
+
+/* A text bar button that may meet a long word in a narrow side slot
+   (the leading "Mailboxes" over the inbox, at large text sizes): it
+   ends in an ellipsis instead of pushing into the title. */
+.bar-button--labelled {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.bar-button__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-button--strong {
+  font-weight: 600;
+}
+
+.bar-button--destructive {
+  color: var(--ui-danger-ink);
+}
+
+/* The one filled button a bar may carry: the screen's commit action
+   (Send). Drawn at 34pt so it sits in the bar like a word, with the
+   hit area extended to 44pt around it. */
+.bar-button--filled {
+  position: relative;
+  min-height: 34px;
+  margin-inline: var(--s-1);
+  padding-inline: var(--s-4);
+  border-radius: var(--r-full);
+  background: var(--ui-accent-fill);
+  color: var(--ui-on-accent);
+  font-weight: 600;
+}
+
+.bar-button--filled::before {
+  content: '';
+  position: absolute;
+  inset: -5px -2px;
+}
+
+/* ── Message body on a phone ─────────────────────────────────────────── */
+/* Senders lay out for a ~600px desktop pane. `renderHtml.ts` caps the
+   declared widths; these rules make whatever is left over scroll
+   inside its own box instead of dragging the page sideways. */
+
+.email-html-body {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  font-size: var(--t-body);
+  line-height: 1.5;
+}
+
+.email-html-body table {
+  max-width: 100%;
+}
+
+.email-html-body pre {
+  overflow-x: auto;
+  white-space: pre;
+}
+
+/* A long unbroken URL or token must never widen the page. */
+.email-html-body a,
+.email-html-body p,
+.email-html-body div,
+.email-html-body span {
+  overflow-wrap: anywhere;
+}
+
+/* Links get a visible tap target without underlining every word of a
+   newsletter's navigation bar. */
+.email-html-body a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Images that came in with no dimensions shouldn't blow the layout
+   out before they load. */
+.email-html-body img {
+  max-width: 100% !important;
+  height: auto;
+}
+
+/* Placeholder for a `cid:` image whose bytes are still arriving. */
+.email-html-body img[data-unkai-inline-pending] {
+  display: inline-block;
+  min-width: 40px;
+  min-height: 40px;
+  background: color-mix(in oklab, var(--color-surface-500) 18%, transparent);
+  border-radius: 0.375rem;
+}
+
+/* ── Motion ──────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Screen-reader-only text (badge counts, icon-button labels). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}

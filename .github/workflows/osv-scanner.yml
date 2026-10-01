@@ -1,0 +1,38 @@
+name: OSV-Scanner
+
+# Google's OSV-Scanner reads our Cargo.lock + package-lock.json and
+# checks every dep against the unified Open Source Vulnerabilities
+# database (osv.dev).  This catches advisories from sources beyond
+# the RustSec / GHSA feeds that `cargo audit` and `npm audit`
+# already cover — the OSV DB unifies CVE, GHSA, RustSec, PyPA,
+# Go DB, OSS-Fuzz, and others into one shape.
+#
+# Apache-2.0 licensed, run by Google, free for any project
+# regardless of whether the downstream binary is sold.
+
+on:
+  # Triggered from `release.yml` and `weekly-security.yml`; daily
+  # dev uses `smoke.yml` instead.
+  workflow_call:
+  workflow_dispatch:
+  schedule:
+    # Independent twice-weekly cron so newly-disclosed advisories
+    # affecting already-merged code surface even when no release
+    # tag was cut.
+    - cron: "0 4 * * 1,4"
+
+permissions:
+  # SARIF upload to the Security tab.
+  security-events: write
+  contents: read
+  actions: read
+
+jobs:
+  scan:
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.5.1
+    with:
+      # Recursively scan every lockfile in the repo (Cargo.lock at
+      # workspace root + ui/package-lock.json).
+      scan-args: |-
+        --lockfile=./Cargo.lock
+        --lockfile=./ui/package-lock.json

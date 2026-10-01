@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "default",
+  "description": "Capabilities for the single mobile window: local notifications, the file picker used by key / calendar / contact import, and the opener that hands URLs to the OS.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "notification:default",
+    "dialog:allow-open",
+    "opener:allow-open-url"
+  ]
+}
