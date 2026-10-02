@@ -14,9 +14,6 @@ reason = "transitive via font-kit / GTK3 — no upstream fix yet"
 id = "RUSTSEC-2024-0416"
 reason = "transitive via font-kit / GTK3 — no upstream fix yet"
 [[IgnoredVulns]]
-id = "RUSTSEC-2025-0057"
-reason = "transitive via font-kit / GTK3 — no upstream fix yet"
-[[IgnoredVulns]]
 id = "RUSTSEC-2024-0412"
 reason = "transitive via font-kit / GTK3 — no upstream fix yet"
 [[IgnoredVulns]]
@@ -44,23 +41,6 @@ reason = "transitive via font-kit / GTK3 — no upstream fix yet"
 id = "RUSTSEC-2024-0429"
 reason = "glib unsoundness — transitive via font-kit / GTK3"
 
-# ── unic-* chain (transitive via rrule / chrono-tz) ──────────────
-[[IgnoredVulns]]
-id = "RUSTSEC-2025-0081"
-reason = "unic-* family is unmaintained — transitive via rrule"
-[[IgnoredVulns]]
-id = "RUSTSEC-2025-0075"
-reason = "unic-* family is unmaintained — transitive via rrule"
-[[IgnoredVulns]]
-id = "RUSTSEC-2025-0080"
-reason = "unic-* family is unmaintained — transitive via rrule"
-[[IgnoredVulns]]
-id = "RUSTSEC-2025-0100"
-reason = "unic-* family is unmaintained — transitive via rrule"
-[[IgnoredVulns]]
-id = "RUSTSEC-2025-0098"
-reason = "unic-* family is unmaintained — transitive via rrule"
-
 # ── Other transitive unmaintained / unsound deps ─────────────────
 [[IgnoredVulns]]
 id = "RUSTSEC-2025-0052"
@@ -68,17 +48,14 @@ reason = "async-std unmaintained — transitive build dep"
 [[IgnoredVulns]]
 id = "RUSTSEC-2024-0370"
 reason = "proc-macro-error unmaintained — transitive build-time"
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0097"
-reason = "rand 0.7 / 0.8 unsoundness — transitive only, not exposed in our API"
 
 # ── quick-xml < 0.41 DoS advisories (transitive copies) ──────────
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0194"
-reason = "quick-xml 0.37/0.38 transitive via tauri-winrt-notification and plist parse locally generated XML only; workspace dep is on patched 0.41"
+reason = "quick-xml 0.37/0.38 transitive via tauri-winrt-notification and plist parse locally generated XML only; workspace dep is on patched 0.42"
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0195"
-reason = "quick-xml 0.37/0.38 transitive via tauri-winrt-notification and plist parse locally generated XML only; workspace dep is on patched 0.41"
+reason = "quick-xml 0.37/0.38 transitive via tauri-winrt-notification and plist parse locally generated XML only; workspace dep is on patched 0.42"
 
 # ── rsa Marvin timing side-channel (transitive via pgp) ──────────
 [[IgnoredVulns]]

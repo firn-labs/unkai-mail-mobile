@@ -57,7 +57,7 @@ chrono-tz = "0.10"
 # don't want to reimplement.
 rrule = "0.14"
 # App data directories
-dirs = "6"
+dirs = "7"
 # OS keychain access (Credential Manager / Keychain / Secret Service)
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 # SQLite for the local mail cache. `bundled-sqlcipher-vendored-openssl`
@@ -113,7 +113,7 @@ mail-parser = "0.11"
 # responses they return. We hand-roll the small XML we emit and parse
 # the responses with quick-xml's pull parser; no full DAV client crate
 # is needed.
-quick-xml = { version = "0.41", features = ["serialize"] }
+quick-xml = { version = "0.42", features = ["serialize"] }
 # vCard 3 / 4 + iCalendar parser. Backs unkai-carddav's contact import
 # (vcard feature) and unkai-caldav's event sync (ical feature). Default
 # features also pull in a generator we don't need, so we ask only for
@@ -145,11 +145,14 @@ hickory-resolver = "0.26"
 # OpenPGP (RFC 4880 / RFC 9580) for end-to-end mail encryption
 # and signing (#57).  Pure-Rust, dual MIT/Apache-2.0 licensed,
 # actively maintained and used in production by Delta Chat.
-# Crate name on crates.io is `pgp`; we alias it locally as `rpgp`
-# in `unkai-crypto`'s Cargo.toml to disambiguate from the protocol
-# acronym.  Pinned at the minor — the 0.x line still ships
-# breaking changes between minors.
-pgp = "0.19"
+# Crate name on crates.io is `pgp`; we alias it as `rpgp` to
+# disambiguate from the protocol acronym.  The alias lives here, in
+# the one declaration, and `unkai-crypto` inherits it: a second
+# declaration in the member's own Cargo.toml once left this line
+# unused, and Dependabot's 0.20 bump failed with the two out of step.
+# Pinned at the minor — the 0.x line still ships breaking changes
+# between minors.
+rpgp = { package = "pgp", version = "0.20" }
 # S/MIME (RFC 8551 / RFC 5652 CMS) sign + verify + encrypt +
 # decrypt and PKCS#12 import for the X.509-based half of mail
 # encryption (#338).  Pure Rust bindings around OpenSSL's CMS
@@ -164,10 +167,12 @@ pgp = "0.19"
 # binary, which is acceptable for now.
 openssl = { version = "0.10", features = ["vendored"] }
 # CSPRNG passed to rpgp for session-key generation when
-# encrypting.  Version pinned to whatever the current `pgp`
-# release re-exports in its public API to avoid two `rand`s
-# in the dep graph.
-rand = "0.8"
+# encrypting.  Must be the major the current `pgp` release depends
+# on (0.8 for pgp 0.20): rpgp's API takes an RNG implementing *its*
+# `rand_core` traits, so any other major does not compile — which is
+# why `dependabot.yml` ignores rand majors.  At least 0.8.6, the
+# first 0.8 release fixed for RUSTSEC-2026-0097.
+rand = "0.8.6"
 # Scrubs cleartext secret buffers (passphrases) from memory on
 # drop (#370).  Already in the tree transitively via `pgp`/`rpgp`;
 # promoting it to a direct dep so `unkai-crypto` can wrap its own
