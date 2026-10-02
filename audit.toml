@@ -16,7 +16,6 @@ ignore = [
   # releases a GTK4-based build.
   "RUSTSEC-2024-0413", # atk
   "RUSTSEC-2024-0416", # atk-sys
-  "RUSTSEC-2025-0057", # fxhash
   "RUSTSEC-2024-0412", # gdk
   "RUSTSEC-2024-0418", # gdk-sys
   "RUSTSEC-2024-0411", # gdkwayland-sys
@@ -27,24 +26,14 @@ ignore = [
   "RUSTSEC-2024-0419", # gtk3-macros
   "RUSTSEC-2024-0429", # glib (unsound)
 
-  # ── unic-* chain (transitive via rrule / chrono-tz) ──────────────
-  # The unic family is unmaintained.  Pulled in transitively by our
-  # recurrence-rule and timezone deps; no direct API surface for us.
-  "RUSTSEC-2025-0081", # unic-char-property
-  "RUSTSEC-2025-0075", # unic-char-range
-  "RUSTSEC-2025-0080", # unic-common
-  "RUSTSEC-2025-0100", # unic-ucd-ident
-  "RUSTSEC-2025-0098", # unic-ucd-version
-
   # ── Other transitive unmaintained / unsound deps ─────────────────
   "RUSTSEC-2025-0052", # async-std (transitive build dep)
   "RUSTSEC-2024-0370", # proc-macro-error (transitive build-time)
-  "RUSTSEC-2026-0097", # rand 0.7 + 0.8 — unsound; transitive only
 
   # ── quick-xml < 0.41 DoS advisories ──────────────────────────────
   # Only the transitive 0.37/0.38 copies via tauri-winrt-notification
   # and plist remain; they parse locally generated XML only.  Our own
-  # workspace dep is on 0.41 (patched).
+  # workspace dep is on 0.42 (patched).
   "RUSTSEC-2026-0194", # quick-xml (quadratic dup-attr check)
   "RUSTSEC-2026-0195", # quick-xml (unbounded ns alloc)
 
