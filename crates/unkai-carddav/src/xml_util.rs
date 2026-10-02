@@ -22,13 +22,7 @@ use quick_xml::events::{BytesStart, Event};
 /// stripped. `<d:href>` → `"href"`. Lower-cased for case-insensitive
 /// matching, since some servers shout `<DAV:>` prefixes.
 pub fn local_name(start: &BytesStart<'_>) -> String {
-    let name = start.name();
-    let bytes = name.as_ref();
-    let local = match bytes.iter().position(|&b| b == b':') {
-        Some(i) => &bytes[i + 1..],
-        None => bytes,
-    };
-    String::from_utf8_lossy(local).to_ascii_lowercase()
+    start.local_name().as_ref().to_ascii_lowercase()
 }
 
 /// Read accumulated text content until the matching end tag for
@@ -59,17 +53,11 @@ pub fn read_text_until(
     let mut buf = String::new();
     loop {
         match reader.read_event() {
-            Ok(Event::Text(t)) => buf.push_str(&t.xml10_content().unwrap_or_default()),
-            Ok(Event::CData(c)) => buf.push_str(&String::from_utf8_lossy(&c)),
+            Ok(Event::Text(t)) => buf.push_str(&t.xml10_content()),
+            Ok(Event::CData(c)) => buf.push_str(&c),
             Ok(Event::GeneralRef(r)) => push_general_ref(&mut buf, &r)?,
             Ok(Event::End(end)) => {
-                let bytes = end.name();
-                let name_bytes = bytes.as_ref();
-                let local = match name_bytes.iter().position(|&b| b == b':') {
-                    Some(i) => &name_bytes[i + 1..],
-                    None => name_bytes,
-                };
-                if String::from_utf8_lossy(local).eq_ignore_ascii_case(start_local) {
+                if end.local_name().as_ref().eq_ignore_ascii_case(start_local) {
                     return Ok(buf);
                 }
             }
@@ -96,8 +84,8 @@ fn push_general_ref(
         buf.push(ch);
         return Ok(());
     }
-    let name = r.decode()?;
-    match name.as_ref() {
+    let name: &str = r;
+    match name {
         "lt" => buf.push('<'),
         "gt" => buf.push('>'),
         "amp" => buf.push('&'),
@@ -135,13 +123,7 @@ pub fn skip_subtree(reader: &mut Reader<&[u8]>, start_local: &str) -> Result<(),
                 depth += 1;
             }
             Ok(Event::End(e)) => {
-                let bytes = e.name();
-                let name_bytes = bytes.as_ref();
-                let local = match name_bytes.iter().position(|&b| b == b':') {
-                    Some(i) => &name_bytes[i + 1..],
-                    None => name_bytes,
-                };
-                if String::from_utf8_lossy(local).eq_ignore_ascii_case(start_local) {
+                if e.local_name().as_ref().eq_ignore_ascii_case(start_local) {
                     depth -= 1;
                     if depth == 0 {
                         return Ok(());

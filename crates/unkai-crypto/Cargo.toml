@@ -8,10 +8,10 @@ publish.workspace = true
 unkai-core.workspace = true
 serde.workspace = true
 tracing.workspace = true
-# Crate name on crates.io is `pgp`; we rename it locally to `rpgp`
-# to avoid talking past ourselves — "pgp" the crate vs "PGP" the
-# protocol family is one collision too many in code.
-rpgp = { package = "pgp", version = "0.19" }
+# Crate name on crates.io is `pgp`; renamed to `rpgp` (in the
+# workspace Cargo.toml) to avoid talking past ourselves — "pgp" the
+# crate vs "PGP" the protocol family is one collision too many in code.
+rpgp.workspace = true
 rand = { workspace = true }
 thiserror = { workspace = true }
 # S/MIME (#338).  See workspace Cargo.toml for the dependency
