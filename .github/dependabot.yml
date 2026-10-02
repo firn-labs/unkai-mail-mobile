@@ -42,6 +42,14 @@ updates:
       semver-patch-days: 5
     # Keep the PR volume manageable.  Security PRs are not capped.
     open-pull-requests-limit: 5
+    ignore:
+      # `rand` is the RNG we hand to rpgp, so it has to be the major
+      # `pgp` itself depends on — pgp 0.20 still takes rand 0.8.  A
+      # newer major only compiles once pgp moves (the 0.10 PR failed
+      # on exactly that).  Patch releases of 0.8 still come through.
+      # Drop this entry when a pgp release depends on a newer rand.
+      - dependency-name: rand
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
   # ── npm (frontend) ──────────────────────────────────────────────
   # The npm ecosystem has been the target of multiple high-profile
@@ -65,6 +73,12 @@ updates:
       semver-minor-days: 7
       semver-patch-days: 5
     open-pull-requests-limit: 5
+    ignore:
+      # svelte-check (our typechecker for .svelte files) declares
+      # `typescript: ^5 || ^6` as a peer, so a TypeScript 7 bump fails
+      # `npm ci` outright.  Drop this entry once svelte-check supports 7.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
 
   # ── GitHub Actions ─────────────────────────────────────────────
   # Pin-bump Action versions so we don't silently drift onto a
