@@ -200,6 +200,21 @@ fixture process. `crates/unkai-commands/src/demo.rs`; the flag is
   account list; before, removing the last account left the app on empty
   tabs.
 
+- **The sample data follows the UI's language** (2026-10-02): German for a
+  German UI, English for the other nine (`DemoLanguage::for_locale`; the
+  UI passes `getLocale()` to `create_demo_account`). It was German only,
+  so an English user started test mode into a German inbox. Each fixture
+  holds both texts side by side (`lang.pick(en, de)`) rather than two
+  parallel lists, and `both_languages_seed_the_same_states` holds them to
+  the same states; `english_sample_data_has_no_german_left_in_it` catches
+  a missed translation. **A new fixture needs both texts.** Sender
+  addresses are the same in both languages (contact cards match by
+  address); the English phone numbers are in the fictional 555-01xx range.
+  Two fixes rode along: the vCards had a stray indent that vCard folding
+  read as a continuation of `FN` (every contact's name swallowed its email
+  line on an edit), and "today" in the calendar was 09:00 *UTC*, so after
+  local midnight in Europe and every evening in the Americas the day's
+  events sat on the wrong date — it is local time now (`today_at_nine`).
 - **It is not a fake server.** Nothing speaks IMAP or SMTP — the data
   is written straight into the cache the app already reads from. That
   is what makes it cheap *and* honest: the app is offline-first, so

@@ -29,6 +29,7 @@
   import { toasts } from '../toast.svelte'
   import { formatError, isCertificateError } from '../errors'
   import { m } from '../../paraglide/messages'
+  import { getLocale } from '../../paraglide/runtime'
 
   interface Props {
     /** First run has nothing to go back to. */
@@ -54,7 +55,8 @@
   async function loadDemo() {
     demoBusy = true
     try {
-      const summary = await api.accounts.createDemoAccount()
+      // The sample data follows the UI's language (German or English).
+      const summary = await api.accounts.createDemoAccount(getLocale())
       toasts.success(
         m.mobile_demo_done({
           messages: summary.messages,

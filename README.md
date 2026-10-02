@@ -51,17 +51,18 @@ What was rewritten is everything that assumed a desktop:
 
 ## Screenshots
 
-Taken in the iOS simulator against demo data.
+Taken in the iOS simulator in dark mode with the built-in test mode's
+sample data — no real account, no server.
 
 <p align="center">
-  <img src="docs/screenshots/mailboxes.png" alt="Mailboxes" width="30%" />
-  <img src="docs/screenshots/message-list.png" alt="Message list" width="30%" />
-  <img src="docs/screenshots/reader.png" alt="Reader" width="30%" />
+  <img src="docs/screenshots/message-list.png" alt="Inbox with unread, flagged and high-priority messages" width="30%" />
+  <img src="docs/screenshots/reader.png" alt="A message in the dark reading mode with an attachment" width="30%" />
+  <img src="docs/screenshots/compose.png" alt="Replying to a message" width="30%" />
 </p>
 <p align="center">
-  <img src="docs/screenshots/compose.png" alt="Compose" width="30%" />
-  <img src="docs/screenshots/calendar.png" alt="Calendar" width="30%" />
-  <img src="docs/screenshots/tasks.png" alt="Tasks" width="30%" />
+  <img src="docs/screenshots/mailboxes.png" alt="Mailboxes of the test account" width="30%" />
+  <img src="docs/screenshots/calendar.png" alt="Month calendar with today's agenda" width="30%" />
+  <img src="docs/screenshots/contacts.png" alt="Contacts in A–Z sections" width="30%" />
 </p>
 
 The current design ("Wolkenmeer") and its rationale are documented in
@@ -229,6 +230,8 @@ same app in a desktop window.
 Tap **Test mode** at the top left of the first-run screen. It fills the
 local cache with a sample mail account, folders, messages, contacts and
 a calendar, so every screen is usable with no server and no network.
+The sample data is in German when the app runs in German and in English
+for every other language.
 Reading, flagging, archiving and moving really work on the sample data;
 **sending is refused** on purpose. Leave it again under
 More → Settings → *Leave test mode*.
