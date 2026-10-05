@@ -52,3 +52,6 @@ keyring.workspace = true
 # running server (auth rejection, Host/Origin validation, locked
 # vault).  Workspace version, rustls-only feature set.
 reqwest.workspace = true
+
+[lints]
+workspace = true

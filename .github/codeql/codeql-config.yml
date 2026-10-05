@@ -11,6 +11,9 @@ paths-ignore:
   # Test code carries its own conventions — fake creds in mock
   # servers, hard-coded fixtures, deliberately unsafe call patterns
   # to test error paths.  CodeQL scans `src/` for the real code.
+  # Inline `#[cfg(test)]` modules inside `src/` cannot be matched by
+  # a path; `codeql.yml` keeps them out of the Rust extraction
+  # instead (`CODEQL_EXTRACTOR_RUST_OPTION_CARGO_CFG_OVERRIDES`).
   - "**/tests/**"
   - "**/test/**"
   - "**/*_test.rs"

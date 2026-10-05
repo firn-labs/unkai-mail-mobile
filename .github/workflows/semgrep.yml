@@ -41,15 +41,22 @@ jobs:
         # `--config p/security-audit` is the cross-language default
         # security pack.  We add the Rust + TS-specific packs on
         # top.  `--sarif` writes findings in the GitHub-Code-Scanning
-        # format so they appear in the Security tab.
+        # format so they appear in the Security tab.  No `--error`:
+        # the next step is the gate, because it alone knows which
+        # findings were already reviewed.
         run: |
           semgrep scan \
             --config p/security-audit \
             --config p/rust \
             --config p/typescript \
-            --sarif --output=semgrep.sarif \
-            --error \
+            --sarif --output=semgrep-raw.sarif \
             --metrics=off
+      - name: Drop reviewed findings, fail on the rest
+        # Honours `// nosemgrep: <rule>` markers (Semgrep's SARIF
+        # keeps them in a form GitHub ignores) and the scoped,
+        # justified exceptions listed in the script.  Logs every
+        # finding it drops.
+        run: python3 .github/semgrep/filter_sarif.py semgrep-raw.sarif semgrep.sarif
       - name: Upload SARIF to GitHub Security tab
         if: always()
         uses: github/codeql-action/upload-sarif@v4.38.2

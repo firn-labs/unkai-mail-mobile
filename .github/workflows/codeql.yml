@@ -42,6 +42,16 @@ jobs:
       matrix:
         language: [javascript-typescript, rust]
 
+    env:
+      # The Rust extractor (rust-analyzer underneath) turns `cfg(test)`
+      # ON by default, so every inline `#[cfg(test)] mod tests` was
+      # analysed as if it shipped — its fixture keys, test certs and
+      # assert messages raised a dozen alerts on code no build of the
+      # app contains.  `-test` analyses what ships, which is what
+      # `paths-ignore` already does for the `tests/` directories.
+      # Read by the Rust extractor only; the JS leg ignores it.
+      CODEQL_EXTRACTOR_RUST_OPTION_CARGO_CFG_OVERRIDES: "-test"
+
     steps:
       - uses: actions/checkout@v7
 

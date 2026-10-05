@@ -35,3 +35,6 @@ base64.workspace = true
 # hand-built bytes through `mail-parser` to assert the envelope
 # structure rather than matching against a brittle string fixture.
 mail-parser.workspace = true
+
+[lints]
+workspace = true

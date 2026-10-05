@@ -44,7 +44,7 @@ The following packages are distributed under the MIT License:
 `hex`, `async-imap`, `futures`, `tokio-rustls`,
 `rustls-pki-types`, `tokio-util`, `sha2`, `lettre`, `mail-parser`,
 `quick-xml`, `ical`, `base64`, `aes-gcm`, `pbkdf2`, `hmac`, `uuid`,
-`hickory-resolver`, `pgp` (rpgp), `rand`, `zeroize`,
+`hickory-resolver`, `pgp` (rpgp), `rand`, `zeroize`, `url`,
 `axum`, `tauri`, `tauri-build`, `tauri-plugin-notification`,
 `tauri-plugin-dialog`, `tauri-plugin-opener`.
 
@@ -101,7 +101,7 @@ with downstream consumers who require it):
 `hex`, `async-imap`, `futures`, `rustls`, `tokio-rustls`,
 `rustls-pki-types`, `mail-parser`, `ical`, `base64`, `aes-gcm`,
 `pbkdf2`, `hmac`, `uuid`, `hickory-resolver`,
-`pgp` (rpgp), `rand`, `openssl`, `zeroize`, `rmcp`, `tauri`,
+`pgp` (rpgp), `rand`, `openssl`, `zeroize`, `url`, `rmcp`, `tauri`,
 `tauri-build`, `tauri-plugin-notification`, `tauri-plugin-dialog`,
 `tauri-plugin-opener`.
 
