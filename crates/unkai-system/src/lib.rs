@@ -41,7 +41,12 @@
 
 use chrono::{DateTime, Utc};
 
+// The one place in the workspace allowed to write `unsafe`: objc2's
+// generated bindings mark most framework calls unsafe, because the
+// compiler cannot check Objective-C's own contracts. Everything else
+// denies it through the workspace lint table (root `Cargo.toml`).
 #[cfg(target_vendor = "apple")]
+#[allow(unsafe_code)]
 mod apple;
 #[cfg(target_vendor = "apple")]
 use apple as backend;

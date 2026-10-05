@@ -10,6 +10,12 @@
 //! authenticated request short-circuits with a clear error instead
 //! of trusting the URL.
 
+use std::net::{Ipv4Addr, Ipv6Addr};
+
+// `::url` is the WHATWG URL crate, not this module (which is also
+// called `url`).
+use ::url::{Host, Url};
+
 use crate::UnkaiError;
 
 /// Reject any URL that doesn't carry the `https://` scheme — with a
@@ -29,29 +35,45 @@ use crate::UnkaiError;
 ///     Loopback never leaves the machine, so cleartext is safe.
 ///   * Developers running a local Nextcloud instance for testing
 ///     also commonly do so over plain HTTP on localhost.
+///
+/// ## Why this parses with the `url` crate
+///
+/// The guard must see the *same host the request will go to*, so it
+/// parses with the WHATWG URL parser `reqwest` uses rather than
+/// splitting the string by hand. The hand-rolled version this replaced
+/// disagreed with it on a backslash: WHATWG reads `\` as `/` in an
+/// `http` URL, so `http://evil.com\@localhost/` *connects to
+/// `evil.com`*, while splitting on `/` and `@` saw the host
+/// `localhost` and let the password go out in cleartext.
 pub fn ensure_https(url: &str) -> Result<(), UnkaiError> {
-    if url.starts_with("https://") {
-        return Ok(());
+    let allowed = match Url::parse(url) {
+        Ok(parsed) => match parsed.scheme() {
+            "https" => true,
+            "http" => is_loopback(&parsed),
+            _ => false,
+        },
+        Err(_) => false,
+    };
+    if allowed {
+        Ok(())
+    } else {
+        Err(UnkaiError::Network(format!(
+            "refusing to send credentials over a non-HTTPS URL: {url}"
+        )))
     }
-    if let Some(rest) = url.strip_prefix("http://") {
-        // Cheap host extraction — everything up to the first `/`,
-        // `?`, `#`, or end of string.  Strip an `userinfo@` prefix
-        // and a `:port` suffix on the way through.
-        let host_with_port = rest.split(['/', '?', '#']).next().unwrap_or("");
-        let host_with_port = host_with_port.rsplit('@').next().unwrap_or(host_with_port);
-        // IPv6 literals come bracketed: `[::1]:8080`.
-        let host = if let Some(end) = host_with_port.strip_prefix('[') {
-            end.split(']').next().unwrap_or("")
-        } else {
-            host_with_port.split(':').next().unwrap_or("")
-        };
-        if matches!(host, "127.0.0.1" | "::1" | "localhost") {
-            return Ok(());
-        }
+}
+
+/// Exactly the three loopback spellings the exemption is for. The
+/// parser has already lower-cased the host and decoded any numeric
+/// IPv4 form, so `http://LOCALHOST/` and `http://0x7f.1/` land here as
+/// `localhost` and `127.0.0.1`.
+fn is_loopback(url: &Url) -> bool {
+    match url.host() {
+        Some(Host::Domain(name)) => name == "localhost",
+        Some(Host::Ipv4(ip)) => ip == Ipv4Addr::LOCALHOST,
+        Some(Host::Ipv6(ip)) => ip == Ipv6Addr::LOCALHOST,
+        None => false,
     }
-    Err(UnkaiError::Network(format!(
-        "refusing to send credentials over a non-HTTPS URL: {url}"
-    )))
 }
 
 #[cfg(test)]
@@ -81,6 +103,32 @@ mod tests {
         // `userinfo@host` — the userinfo is `127.0.0.1`, host is
         // `evil.com`.  Must reject.
         assert!(ensure_https("http://127.0.0.1@evil.com/path").is_err());
+    }
+
+    #[test]
+    fn http_backslash_does_not_spoof_loopback() {
+        // WHATWG (and so reqwest) treats `\` as `/` in an http URL:
+        // the host of each of these is `evil.com`, and the part after
+        // the backslash is the path. The old hand-rolled split read
+        // the host as `localhost` / `127.0.0.1` and let them through.
+        assert!(ensure_https("http://evil.com\\@localhost/dav").is_err());
+        assert!(ensure_https("http://evil.com\\@127.0.0.1/").is_err());
+        assert!(ensure_https("http://evil.com\\@[::1]/").is_err());
+    }
+
+    #[test]
+    fn loopback_lookalikes_rejected() {
+        assert!(ensure_https("http://localhost.evil.com/").is_err());
+        assert!(ensure_https("http://127.0.0.1.evil.com/").is_err());
+        assert!(ensure_https("http://127.0.0.2/").is_err());
+    }
+
+    #[test]
+    fn scheme_and_host_case_do_not_matter() {
+        // The parser normalises both, as reqwest will when it connects.
+        assert!(ensure_https("HTTPS://example.com/").is_ok());
+        assert!(ensure_https("HTTP://LOCALHOST:8080/").is_ok());
+        assert!(ensure_https("HTTP://EXAMPLE.COM/").is_err());
     }
 
     #[test]

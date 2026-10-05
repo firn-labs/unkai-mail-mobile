@@ -28,3 +28,6 @@ webpki-root-certs = { workspace = true }
 rustls-pki-types = { workspace = true }
 # Zeroize our own cleartext passphrase buffers on drop (#370).
 zeroize = { workspace = true }
+
+[lints]
+workspace = true

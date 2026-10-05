@@ -27,3 +27,6 @@ ical.workspace = true
 # fresh per-probe UID so two parallel probes can't collide on the
 # server-side href.
 uuid.workspace = true
+
+[lints]
+workspace = true
