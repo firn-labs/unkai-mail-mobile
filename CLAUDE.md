@@ -1155,6 +1155,19 @@ URLs by hand and read `http://evil.com\@localhost/` as loopback while
 the parser `reqwest` uses. **The desktop repository has the same
 `ensure_https`** and needs the same fix.
 
+**Accepted advisories live in four lists that must agree:**
+`.cargo/audit.toml` (cargo-audit reads it only there — at the root it
+was dead config), `deny.toml`, `osv-scanner.toml`, and the `ignore:`
+input of the audit job in `ci.yml` (the action reads no file). The
+scheduled scans fail on any advisory published after the last
+lockfile refresh, so the first move on a red security run is
+`cargo update` + `npm --prefix ui update --save`; only what has no
+fixed release goes on the lists, with the reason (2026-10-28: pgp's
+`rsa` and `crypto-bigint`, the Linux-only GTK/zbus crates Tauri
+carries, `async-std` via async-imap 0.11, `deepmerge` at build time).
+Withdrawn or vanished IDs come off again — cargo-deny warns
+`advisory-not-detected` for them.
+
 **There is no release workflow.** The desktop repo's installer matrix,
 updater signing, and tag pipeline were removed — they describe a
 distribution model this app doesn't have yet. When the app is stable
