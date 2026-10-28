@@ -104,3 +104,6 @@ objc2-contacts = { version = "0.3", default-features = false, features = [
     "CNPostalAddress",
     "CNSaveRequest",
 ] }
+
+[lints]
+workspace = true

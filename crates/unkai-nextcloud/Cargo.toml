@@ -19,3 +19,6 @@ quick-xml.workspace = true
 # `getlastmodified` arrives as an HTTP-date string that we convert to
 # `DateTime<Utc>` so the UI can format it consistently.
 chrono.workspace = true
+
+[lints]
+workspace = true

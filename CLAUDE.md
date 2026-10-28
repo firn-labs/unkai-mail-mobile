@@ -1123,6 +1123,55 @@ The Rust jobs check against the **iOS simulator target** on macOS
 runners on purpose: this app ships to a phone, so "it compiles" has
 to mean "it compiles for iOS".
 
+**Code scanning (Security tab).** The first scan of this repository
+(2026-10-04) opened 149 alerts; the triage is the reason for three
+mechanisms, each of which keeps a *reviewed* finding from coming back
+without hiding a new one:
+
+- **`unsafe` lives in `crates/unkai-system/src/apple/` and nowhere
+  else.** `[workspace.lints.rust] unsafe_code = "deny"` (root
+  `Cargo.toml`), every crate opts in with `[lints] workspace = true`,
+  and only `mod apple` carries `#[allow(unsafe_code)]`. Semgrep's
+  "every unsafe block" audit rule is dropped for that one directory
+  (121 hits — objc2 marks framework calls unsafe) and still reports
+  `unsafe` anywhere else. **A new crate gets `[lints] workspace = true`.**
+- **`// nosemgrep: <rule>` works only through
+  `.github/semgrep/filter_sarif.py`.** Semgrep keeps marked findings
+  in its SARIF in a form GitHub ignores, so the workflow drops them
+  before the upload and fails on what is left. A marker goes on the
+  line directly above the match, with the reason.
+- **CodeQL analyses what ships.** Inline `#[cfg(test)]` modules are
+  kept out of the Rust extraction (`codeql.yml`); `tests/` directories
+  were already ignored (`codeql-config.yml`).
+
+CodeQL has no in-source marker, so a production false positive is
+**dismissed on GitHub with the reason** — those reasons are the
+record (the DAV/JMAP "cleartext transmission" ones rest on
+`ensure_https`, the trusted-senders ones on the list holding bare
+addresses, the `fido.rs` ones on the documented MAC key and an output
+buffer). The triage also found one real hole: `ensure_https` split
+URLs by hand and read `http://evil.com\@localhost/` as loopback while
+`reqwest` connects to `evil.com`; it now parses with the `url` crate,
+the parser `reqwest` uses. **The desktop repository has the same
+`ensure_https`** and needs the same fix.
+
+**Accepted advisories live in four lists that must agree:**
+`.cargo/audit.toml` (cargo-audit reads it only there — at the root it
+was dead config), `deny.toml`, `osv-scanner.toml`, and the `ignore:`
+input of the audit job in `ci.yml` (the action reads no file). The
+scheduled scans fail on any advisory published after the last
+lockfile refresh, so the first move on a red security run is
+`cargo update` + `npm --prefix ui update --save`; only what has no
+fixed release goes on the lists, with the reason (2026-10-28: pgp's
+`rsa`, `crypto-bigint` and `block-buffer` 0.10, the Linux-only GTK/zbus
+crates Tauri carries, `async-std` via async-imap 0.11, `deepmerge` at
+build time). Withdrawn or vanished IDs come off again — cargo-deny warns
+`advisory-not-detected` for them. GHSA-only advisories (no RUSTSEC id)
+reach OSV alone, so they live in `osv-scanner.toml` only. The OSV
+workflow passes `--config` explicitly: without it the scanner applies
+the `osv-scanner.toml` *next to each lockfile*, and the root file never
+reached `ui/package-lock.json`.
+
 **There is no release workflow.** The desktop repo's installer matrix,
 updater signing, and tag pipeline were removed — they describe a
 distribution model this app doesn't have yet. When the app is stable

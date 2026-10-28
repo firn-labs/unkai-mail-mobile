@@ -30,6 +30,17 @@ repository = "https://github.com/firn-labs/unkai-mail-mobile"
 # path-deps from the wildcard ban.
 publish = false
 
+# `unsafe` lives in exactly one module of the workspace: the
+# Objective-C bridge in `crates/unkai-system/src/apple/`, which says
+# `#[allow(unsafe_code)]` on its `mod` line and nowhere else. Every
+# crate under `crates/` opts in with `[lints] workspace = true`, so
+# `unsafe` anywhere else fails the build. Semgrep's "every unsafe
+# block" audit rule is scoped to match (`.github/semgrep/`), which is
+# only honest because this lint holds the line. (`deny`, not
+# `forbid`: a `forbid` cannot be allowed again for that one module.)
+[workspace.lints.rust]
+unsafe_code = "deny"
+
 [workspace.dependencies]
 # Async runtime
 tokio = { version = "1", features = ["full"] }
@@ -72,6 +83,11 @@ r2d2 = "0.8"
 r2d2_sqlite = "0.25"
 # Cryptographically secure random bytes for generating the DB master key.
 getrandom = "0.4"
+# WHATWG URL parser — the one `reqwest` itself parses with. Used by
+# `unkai_core::url::ensure_https` so the "is this HTTPS?" check sees
+# exactly the host the request will go to (and by unkai-jmap for
+# .well-known discovery and relative URL resolution).
+url = "2"
 # Hex encoding for the keychain-stored master key and the SQLCipher
 # `PRAGMA key = "x'<hex>'"` literal syntax.
 hex = "0.4"

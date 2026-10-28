@@ -456,7 +456,7 @@ export function themeTokensCss(themeId: string, color: ThemeColors): string {
     block(light, solveTokens(color, 'light')),
     block(dark, solveTokens(color, 'dark')),
     `@media (prefers-contrast: more) {\n${block(light, solveTokens(color, 'light', 'more'), '  ')}\n${block(
-      dark.replace('\n', '\n  '),
+      dark.replaceAll('\n', '\n  '),
       solveTokens(color, 'dark', 'more'),
       '  ',
     )}\n}`,

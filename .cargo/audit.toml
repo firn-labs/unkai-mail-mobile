@@ -1,0 +1,38 @@
+# Configuration for `cargo audit`. It lives in `.cargo/` because that is
+# where cargo-audit looks — at the repository root it was never read, so
+# a local `cargo audit` reported the accepted advisories as new.
+#
+# Each ID listed below is an advisory we are *intentionally* accepting
+# because the affected crate is pulled in transitively by an upstream we
+# cannot upgrade past.  Revisit this list whenever upstream releases land
+# — the goal is to keep it shrinking.
+#
+# Keep in sync with `deny.toml`, `osv-scanner.toml` and the `ignore:`
+# input of the audit job in `.github/workflows/ci.yml` (the
+# rustsec/audit-check action reads no config file).
+
+[advisories]
+ignore = [
+  # ── Linux-only desktop stacks Tauri carries along ───────────────
+  # Tauri's Linux backends (muda → gtk → glib; tauri-plugin-notification
+  # and -opener → zbus) stay in Cargo.lock but are never compiled for
+  # iOS.
+  "RUSTSEC-2024-0429", # glib (unsound iterator impls)
+  "RUSTSEC-2024-0370", # proc-macro-error (unmaintained, via glib-macros)
+  "RUSTSEC-2026-0370", # zvariant (unmaintained)
+  "RUSTSEC-2026-0371", # zbus_names (unmaintained)
+  "RUSTSEC-2026-0372", # zvariant_derive (unmaintained)
+
+  # ── Other transitive unmaintained deps ───────────────────────────
+  "RUSTSEC-2025-0052", # async-std (unmaintained, via async-imap 0.11)
+
+  # ── pgp's RSA / elliptic-curve stack ─────────────────────────────
+  # `rsa` (CVE-2023-49092, Marvin) has no patched release upstream, and
+  # `crypto-bigint` is fixed only in 0.7 while every `pgp` release up
+  # to 0.21 is built on elliptic-curve 0.13 → crypto-bigint 0.5.  Both
+  # are timing side channels: they need an attacker who can measure
+  # many decryptions or signatures, which our local, offline PGP use
+  # never exposes to a remote party.
+  "RUSTSEC-2023-0071", # rsa (Marvin)
+  "RUSTSEC-2026-0387", # crypto-bigint (timing variability)
+]

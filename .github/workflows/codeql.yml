@@ -42,11 +42,21 @@ jobs:
       matrix:
         language: [javascript-typescript, rust]
 
+    env:
+      # The Rust extractor (rust-analyzer underneath) turns `cfg(test)`
+      # ON by default, so every inline `#[cfg(test)] mod tests` was
+      # analysed as if it shipped — its fixture keys, test certs and
+      # assert messages raised a dozen alerts on code no build of the
+      # app contains.  `-test` analyses what ships, which is what
+      # `paths-ignore` already does for the `tests/` directories.
+      # Read by the Rust extractor only; the JS leg ignores it.
+      CODEQL_EXTRACTOR_RUST_OPTION_CARGO_CFG_OVERRIDES: "-test"
+
     steps:
       - uses: actions/checkout@v7
 
       - name: Initialise CodeQL
-        uses: github/codeql-action/init@v4.38.2
+        uses: github/codeql-action/init@v4.39.0
         with:
           languages: ${{ matrix.language }}
           # See `.github/codeql/codeql-config.yml` for the path
@@ -57,9 +67,9 @@ jobs:
       # CodeQL needs to *see* compiled code for compiled languages.
       # For Rust we let its autobuild step run cargo for us.
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v4.38.2
+        uses: github/codeql-action/autobuild@v4.39.0
 
       - name: Run CodeQL analysis
-        uses: github/codeql-action/analyze@v4.38.2
+        uses: github/codeql-action/analyze@v4.39.0
         with:
           category: "/language:${{ matrix.language }}"

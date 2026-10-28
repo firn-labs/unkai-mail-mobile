@@ -10,6 +10,8 @@ serde_json.workspace = true
 thiserror.workspace = true
 chrono.workspace = true
 tracing.workspace = true
+# `ensure_https` parses with the same WHATWG parser reqwest uses.
+url.workspace = true
 # Shared TLS plumbing for unkai-imap and unkai-smtp lives here so
 # the two protocol crates can't drift on cert validation behaviour.
 rustls.workspace = true
@@ -17,3 +19,6 @@ rustls-pki-types.workspace = true
 webpki-roots.workspace = true
 sha2.workspace = true
 hex.workspace = true
+
+[lints]
+workspace = true
