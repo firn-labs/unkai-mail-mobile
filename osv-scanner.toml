@@ -36,10 +36,12 @@ reason = "rsa Marvin attack (CVE-2023-49092) — no patched release exists upstr
 id = "RUSTSEC-2026-0387"
 reason = "crypto-bigint 0.5 timing variability — via pgp's elliptic-curve 0.13 stack; fixed only in 0.7, which no pgp release (0.21 included) uses yet. Same local-timing-oracle argument as rsa."
 
+# ── RustCrypto's previous generation (transitive via pgp) ────────
+[[IgnoredVulns]]
+id = "GHSA-qwgh-2vcv-g2f7"
+reason = "block-buffer 0.10 cursor corruption after a *caught* panic in a compress callback — fixed only in 0.12.1 (already in the tree for the current RustCrypto stack); 0.10.4 is the last of its line and is reached through digest 0.10 under pgp. Exploiting it needs code that catches a panic from inside a hash and keeps using the hasher, which nothing here does."
+
 # ── npm, build-time only ─────────────────────────────────────────
 [[IgnoredVulns]]
 id = "GHSA-gcqx-w48m-w2h4"
 reason = "deepmerge prototype poisoning (low) — no patched release; reached only via @sveltejs/vite-plugin-svelte at build time, merging our own Vite/Svelte config objects. Nothing of it ships in the bundle."
-[[IgnoredVulns]]
-id = "CVE-2026-93753"
-reason = "Alias of GHSA-gcqx-w48m-w2h4 (deepmerge, build-time only) — see above."

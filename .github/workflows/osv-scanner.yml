@@ -33,6 +33,12 @@ jobs:
     with:
       # Recursively scan every lockfile in the repo (Cargo.lock at
       # workspace root + ui/package-lock.json).
+      #
+      # `--config` is explicit on purpose: without it OSV-Scanner applies
+      # the `osv-scanner.toml` *next to each lockfile*, so the root file
+      # covered Cargo.lock only and its npm entries were reported as
+      # "unused ignores" while the same advisories failed the scan.
       scan-args: |-
+        --config=./osv-scanner.toml
         --lockfile=./Cargo.lock
         --lockfile=./ui/package-lock.json
