@@ -59,7 +59,7 @@ jobs:
         run: python3 .github/semgrep/filter_sarif.py semgrep-raw.sarif semgrep.sarif
       - name: Upload SARIF to GitHub Security tab
         if: always()
-        uses: github/codeql-action/upload-sarif@v4.39.0
+        uses: github/codeql-action/upload-sarif@v4.39.1
         with:
           sarif_file: semgrep.sarif
           category: semgrep

@@ -3167,7 +3167,7 @@ fn decode_header(bytes: &[u8]) -> String {
 /// the phrase makes the result unparseable, and a plain reply would
 /// fail with "Invalid 'to' address".  Collapsing the redundant name
 /// also cleans up the mail-list display.
-fn format_address(addr: &async_imap::imap_proto::types::Address<'_>) -> String {
+fn format_address(addr: &async_imap::imap_proto::Address<'_>) -> String {
     let name = addr
         .name
         .as_ref()
@@ -3216,9 +3216,7 @@ fn format_address(addr: &async_imap::imap_proto::types::Address<'_>) -> String {
 /// entries whose `mailbox`/`host` are NIL — `format_address` renders
 /// those as an empty string, which we drop so the participant-overlap
 /// check downstream never sees a phantom "" address.
-fn format_address_list(
-    addrs: Option<&Vec<async_imap::imap_proto::types::Address<'_>>>,
-) -> Vec<String> {
+fn format_address_list(addrs: Option<&Vec<async_imap::imap_proto::Address<'_>>>) -> Vec<String> {
     addrs
         .map(|list| {
             list.iter()
