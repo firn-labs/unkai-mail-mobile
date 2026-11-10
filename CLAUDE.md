@@ -1162,11 +1162,19 @@ input of the audit job in `ci.yml` (the action reads no file). The
 scheduled scans fail on any advisory published after the last
 lockfile refresh, so the first move on a red security run is
 `cargo update` + `npm --prefix ui update --save`; only what has no
-fixed release goes on the lists, with the reason (2026-10-28: pgp's
+fixed release goes on the lists, with the reason (2026-11-10: pgp's
 `rsa`, `crypto-bigint` and `block-buffer` 0.10, the Linux-only GTK/zbus
-crates Tauri carries, `async-std` via async-imap 0.11, `deepmerge` at
+crates Tauri carries, `async-std` and `pin-utils` via async-imap,
+SQLite's CVE-2026-119375 in the bundled SQLCipher, `deepmerge` at
 build time). Withdrawn or vanished IDs come off again — cargo-deny warns
-`advisory-not-detected` for them. GHSA-only advisories (no RUSTSEC id)
+`advisory-not-detected` for them. **"Patched in version X" is a claim
+about a crate version, not about our build:** `libsqlite3-sys` 0.39 is
+patched for plain `bundled` SQLite, while its `bundled-sqlcipher` path
+still pins an affected SQLCipher — upgrading `rusqlite` would have
+turned the scanners green and changed nothing we ship. Read the
+advisory text before bumping; the entry in `.cargo/audit.toml` says
+when to revisit. cargo-deny also refuses *yanked* versions
+(`yanked = "deny"`), which the same `cargo update` clears. GHSA-only advisories (no RUSTSEC id)
 reach OSV alone, so they live in `osv-scanner.toml` only. The OSV
 workflow passes `--config` explicitly: without it the scanner applies
 the `osv-scanner.toml` *next to each lockfile*, and the root file never

@@ -26,7 +26,10 @@ reason = "zvariant_derive unmaintained — transitive via zbus in the Linux back
 # ── Other transitive unmaintained deps ───────────────────────────
 [[IgnoredVulns]]
 id = "RUSTSEC-2025-0052"
-reason = "async-std unmaintained — transitive via async-imap 0.11"
+reason = "async-std unmaintained — transitive via async-imap (0.12 is the newest release and still defaults to the async-std runtime)"
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0441"
+reason = "pin-utils unmaintained — transitive via async-imap / async-std; a notice, not a vulnerability, and no newer async-imap exists"
 
 # ── pgp's RSA / elliptic-curve stack (transitive via pgp) ────────
 [[IgnoredVulns]]
@@ -35,6 +38,11 @@ reason = "rsa Marvin attack (CVE-2023-49092) — no patched release exists upstr
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0387"
 reason = "crypto-bigint 0.5 timing variability — via pgp's elliptic-curve 0.13 stack; fixed only in 0.7, which no pgp release (0.21 included) uses yet. Same local-timing-oracle argument as rsa."
+
+# ── SQLite CVE-2026-119375 in the bundled SQLCipher ─────────────
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0459"
+reason = "SQLite before 3.54.0 can return stale process memory for a database opened with a crafted -wal of another page size. Upgrading does not fix our build: libsqlite3-sys 0.39 is patched only for plain `bundled`; its `bundled-sqlcipher` path pins sqlcipher-src =419.0.6 (SQLite 3.53.4, still affected), and the fixed SQLCipher (sqlcipher-src 420) is in no rusqlite release yet. The attacker would have to plant files inside the app's own sandbox, and only this process reads the result. Revisit when libsqlite3-sys moves to sqlcipher-src >= 420."
 
 # ── RustCrypto's previous generation (transitive via pgp) ────────
 [[IgnoredVulns]]
