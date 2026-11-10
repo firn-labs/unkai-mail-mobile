@@ -1048,55 +1048,41 @@ xcrun simctl io booted screenshot shot.png
 
 ### Developing without a mail account
 
-`devtools/fake_mail_server.py` is an IMAP + SMTP server that speaks
-exactly the slice of the protocols this client uses, over a
-self-signed certificate it generates on first run:
+**Test mode is the way** (see "The demo account"): it seeds the cache
+and needs no server, no network and no extra process.
 
-```bash
-python3 devtools/fake_mail_server.py
-# IMAP TLS      → localhost:9993
-# SMTP STARTTLS → localhost:9465
-# any username / password is accepted
-```
+**The fixture server is gone from the tree** (removed 2026-11-10 on
+purpose). `devtools/fake_mail_server.py` was an IMAP + SMTP server
+speaking the slice of the protocols this client uses, and
+`crates/unkai-imap/tests/fixture_server.rs` drove the real clients
+against it. Older entries under Project Status that say "verified
+against the fixture server" refer to it. Two consequences:
 
-Add it in the app through *Enter server details manually*; the
-certificate prompt appears, and trusting it is the same path a
-self-hosted server takes. The mailbox is **mutable** (flags, moves,
-deletes and appends stick) and SMTP **delivers back into the IMAP
-store**, so composing a message and pulling to refresh shows the mail
-you just sent — the whole loop is exercisable offline.
-
-Three details worth knowing:
-
-- **`UNKAI_FIXTURE_TRACE=1` logs every IMAP and SMTP command.** The
-  fastest way to answer "where did the client conversation stop?" and,
-  just as usefully, "how many round trips does this screen actually
-  cost?" — the trace is how the per-folder `STATUS` loop and the
-  reconcile's old `UID SEARCH ALL` were spotted.
-
-- **Submission is STARTTLS, not implicit TLS**, because
-  `unkai-smtp` picks its TLS mode from the port number (`465` ⇒
-  implicit, anything else ⇒ STARTTLS) and binding 465 needs root.
-  That heuristic is a real limitation for users too: a server
-  offering *implicit* TLS on a non-standard port cannot currently be
-  configured. Fixing it means an explicit TLS-mode choice in the
-  account model and the setup UI — a shared-crate change, so it
-  belongs in its own issue.
-- **`crates/unkai-imap/tests/fixture_server.rs`** drives the real
-  IMAP and SMTP clients against the fixture. It's `#[ignore]`d (it
-  needs the server running) and is what catches the fixture drifting
-  away from what the client actually sends:
+- **Nothing in the tree exercises the real IMAP/SMTP clients end to
+  end any more.** Unit tests cover parsing, timeouts and MUTF-7; the
+  network path now needs a real account. Before a change to the mail
+  transport (an `async-imap` bump, the TLS setup), bring both files
+  back for the run — they are in history, last at `d9d65ab`:
 
   ```bash
+  git show d9d65ab:devtools/fake_mail_server.py > /tmp/fake_mail_server.py
+  git show d9d65ab:crates/unkai-imap/tests/fixture_server.rs \
+      > crates/unkai-imap/tests/fixture_server.rs   # needs unkai-smtp as a dev-dependency again
+  python3 /tmp/fake_mail_server.py                   # IMAP TLS 9993, SMTP STARTTLS 9465
   cargo test -p unkai-imap --test fixture_server -- --ignored
   ```
 
-  Drift runs in both directions, and the fixture is the side that is
-  usually wrong. It answered `UID SEARCH UID 1:1` with the whole
-  mailbox until the sync path started sending bounded searches — a
-  permissive fixture that would have hidden a real client bug. When a
-  test against it fails, check which side is actually misbehaving
-  before changing the client.
+  That is how `async-imap` 0.12 was checked on 2026-10-28. Don't
+  commit the restored files.
+- **`devtools/.certs/` stays in `.gitignore`**: checkouts that ran the
+  server still hold its self-signed key there.
+
+One finding from the fixture outlives it: **`unkai-smtp` picks its TLS
+mode from the port number** (`465` ⇒ implicit, anything else ⇒
+STARTTLS). That is a real limitation for users: a server offering
+*implicit* TLS on a non-standard port cannot currently be configured.
+Fixing it means an explicit TLS-mode choice in the account model and
+the setup UI — a shared-crate change, so it belongs in its own issue.
 
 ### Background sync — the honest limitation
 
@@ -1194,7 +1180,7 @@ written then, against a real signing certificate.
 - The Rust workspace, the application layer and the encrypted store compile and run on iOS unchanged
 - The mobile shell (`src-tauri`) is a rewrite: 221 command shims, one app context, no window/tray/profile machinery
 - The frontend is a rewrite: 5 tabs (three of them user-assignable), ~32 screens, a hand-built mobile component vocabulary, bilingual (en/de) from day one and in ten languages since 2026-10-01
-- Verified in the simulator against a live IMAP/SMTP server (`devtools/fake_mail_server.py`): account setup incl. certificate trust, folder discovery with special-use detection, message list, reader (HTML, attachments, quote folding), swipe actions, archive (confirmed server-side), compose → SMTP → outbox retry → delivery → sync, search, dark mode
+- Verified in the simulator against a live IMAP/SMTP server (the fixture server `devtools/fake_mail_server.py`, removed from the tree 2026-11-10 — see "Developing without a mail account"): account setup incl. certificate trust, folder discovery with special-use detection, message list, reader (HTML, attachments, quote folding), swipe actions, archive (confirmed server-side), compose → SMTP → outbox retry → delivery → sync, search, dark mode
 - **Not yet verified: Nextcloud** — Files, Talk, Notes, Tasks, Calendar, Contacts and Shares have never run against a real server. They're written against the same command layer the desktop uses, but treat them as unproven.
 - **The System source reads correctly in the simulator** (2026-09-03): the device source was added, all three permissions granted, and the simulator's own Contacts and Calendar databases show up in the app — contacts with their **profile photos**, calendar events tinted with the **calendar's own EventKit colour**. Still unproven: every *write* path (create / update / delete of an event, reminder or contact), the permission prompts on a first install, and all of it on real hardware.
 - **A responsiveness pass landed** (2026-09-03) — see "Staying responsive". The three reported symptoms had three distinct causes: the IMAP client had **no timeouts at any layer**, so a stalled socket hung a refresh forever; `new-mail` fired **once per message**, so a burst of mail meant a burst of OS notifications and unread-count IPC; and the gesture components re-rendered an interpolated `style` attribute on every pointer event. Re-verified in the simulator against the fixture server afterwards: pull-to-refresh (one connection per pull, retracts cleanly), swipe-to-archive with its toast, tab and stack navigation, and the reconcile now issuing a bounded `UID SEARCH UID low:high` instead of `UID SEARCH ALL`.

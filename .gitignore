@@ -30,7 +30,9 @@ DerivedData/
 .DS_Store
 Thumbs.db
 
-# The dev fixture's self-signed certificate (regenerated on first run)
+# The self-signed certificate + key of the former dev fixture server
+# (removed 2026-11-10). Checkouts that ran it still have the directory,
+# and a private key must never be picked up by `git add -A`.
 devtools/.certs/
 
 # Environment / secrets

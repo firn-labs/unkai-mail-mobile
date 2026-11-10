@@ -5,8 +5,7 @@
 //! real-shaped data to render. It is what makes the app usable as a
 //! design and QA surface: you can try the mail list, the reader, swipe
 //! actions, search, the calendar grid and the contact sheet without an
-//! account, without a network, and without the fixture server running on
-//! someone's Mac.
+//! account, without a network, and without a mail server of any kind.
 //!
 //! # What it deliberately is not
 //!
