@@ -26,7 +26,8 @@ ignore = [
   # (muda → gtk → glib); never compiled for iOS.
   "RUSTSEC-2024-0429",
   # Other transitive deps
-  "RUSTSEC-2025-0052", # async-std (via async-imap 0.11)
+  "RUSTSEC-2025-0052", # async-std (via async-imap, newest is 0.12)
+  "RUSTSEC-2026-0441", # pin-utils (unmaintained, via async-imap / async-std)
   "RUSTSEC-2024-0370", # proc-macro-error (via glib-macros, build-time)
   # zbus' D-Bus type crates, flagged unmaintained — reached only through
   # the Linux backends of tauri-plugin-notification / -opener, never
@@ -41,6 +42,13 @@ ignore = [
   # 0.13 stack. Fixed only in 0.7, which no pgp release (0.21 included)
   # uses yet; same local-timing-oracle argument as rsa above.
   "RUSTSEC-2026-0387", # crypto-bigint
+  # SQLite CVE-2026-119375 in the bundled SQLCipher. No release fixes
+  # our build: libsqlite3-sys 0.39's `bundled-sqlcipher` path still
+  # pins an affected SQLCipher (sqlcipher-src =419.0.6), so an upgrade
+  # would only quiet the scanner. Needs a crafted db + -wal planted in
+  # the app sandbox. Rationale and the revisit trigger are in
+  # .cargo/audit.toml.
+  "RUSTSEC-2026-0459", # libsqlite3-sys (bundled SQLCipher)
 ]
 
 # ── Licences ────────────────────────────────────────────────────
