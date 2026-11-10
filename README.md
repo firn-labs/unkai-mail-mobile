@@ -236,17 +236,8 @@ Reading, flagging, archiving and moving really work on the sample data;
 **sending is refused** on purpose. Leave it again under
 More → Settings → *Leave test mode*.
 
-To exercise the real network path without a real account, run the
-bundled test server:
-
-```bash
-python3 devtools/fake_mail_server.py     # IMAP 9993 + SMTP 9465, self-signed
-```
-
-Add it through *Enter server details manually* (any username and
-password work), trust the certificate when the app asks, and you have a
-working mailbox: flags and moves stick, and messages you send are
-delivered back into the inbox.
+Test mode never touches the network. To exercise the real IMAP and SMTP
+path you need a mail account of your own, added on the first-run screen.
 
 ### 4. On your own iPhone
 

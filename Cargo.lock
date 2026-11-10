@@ -7055,7 +7055,6 @@ dependencies = [
  "tokio-util",
  "tracing",
  "unkai-core",
- "unkai-smtp",
  "webpki-roots",
 ]
 
